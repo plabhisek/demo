@@ -18,6 +18,16 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  employeeID: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true
+  },
+  department: {
+    type: String,
+    trim: true
+  },
   role: {
     type: String,
     enum: ['admin', 'user'],
@@ -25,7 +35,7 @@ const UserSchema = new mongoose.Schema({
   },
   active: {
     type: Boolean,
-    default: true
+    default: false
   },
   createdAt: {
     type: Date,

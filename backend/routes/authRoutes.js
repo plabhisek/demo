@@ -1,6 +1,6 @@
 const express = require('express');
 const { check } = require('express-validator');
-const { register, login, getCurrentUser } = require('../controllers/authController');
+const { register, login, getCurrentUser, verifyToken } = require('../controllers/authController');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
@@ -13,18 +13,19 @@ router.post(
   [
     check('name', 'Name is required').not().isEmpty(),
     check('email', 'Please include a valid email').isEmail(),
-    check('password', 'Password must be at least 6 characters').isLength({ min: 6 })
+    check('password', 'Password must be at least 6 characters').isLength({ min: 6 }),
+    check('employeeID', 'Employee ID is required').not().isEmpty()
   ],
   register
 );
 
 // @route   POST /api/auth/login
-// @desc    Login user
+// @desc    Login user via LDAP
 // @access  Public
 router.post(
   '/login',
   [
-    check('email', 'Please include a valid email').isEmail(),
+    check('employeeID', 'Employee ID is required').not().isEmpty(),
     check('password', 'Password is required').exists()
   ],
   login
@@ -34,5 +35,10 @@ router.post(
 // @desc    Get current user
 // @access  Private
 router.get('/me', auth, getCurrentUser);
+
+// @route   GET /api/auth/verify
+// @desc    Verify token
+// @access  Private
+router.get('/verify', auth, verifyToken);
 
 module.exports = router;
