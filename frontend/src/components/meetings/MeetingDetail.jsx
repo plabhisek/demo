@@ -74,8 +74,12 @@ const MeetingDetail = () => {
   
   // Check if user can edit meeting (admin, creator or assigned user)
   const canEdit = isAdmin || 
-    meeting.createdBy._id === currentUser?._id || 
-    meeting.assignedTo._id === currentUser?._id;
+    (meeting.createdBy && meeting.createdBy._id === currentUser?._id) || 
+    (meeting.assignedTo && meeting.assignedTo._id === currentUser?._id);
+  
+  // Check if user can add MoM (admin or assigned user)
+  const canAddMoM = isAdmin || 
+    (meeting.assignedTo && meeting.assignedTo._id === currentUser?.id);
   
   // Get the latest MoM if available
   const latestMoM = meeting.minutesOfMeeting && meeting.minutesOfMeeting.length > 0 
@@ -100,7 +104,7 @@ const MeetingDetail = () => {
               >
                 Edit
               </Link>
-              {(isAdmin || meeting.createdBy._id === currentUser?._id) && (
+              {(isAdmin || (meeting.createdBy && meeting.createdBy._id === currentUser?._id)) && (
                 <button 
                   onClick={handleDelete}
                   className="px-4 py-2 bg-red-100 text-red-800 rounded-md hover:bg-red-200"
@@ -191,7 +195,7 @@ const MeetingDetail = () => {
               {latestMoM ? 'Record of the discussion and decisions.' : 'No minutes recorded yet.'}
             </p>
           </div>
-          {canEdit && (
+          {canAddMoM && ( // Updated to use canAddMoM instead of canEdit
             <Link 
               to={`/meetings/${id}/mom`}
               className="px-4 py-2 bg-green-100 text-green-800 rounded-md hover:bg-green-200"
