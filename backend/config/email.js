@@ -8,10 +8,10 @@ const setupTransporter = () => {
     host: process.env.EMAIL_HOST,
     port: process.env.EMAIL_PORT,
     secure: process.env.EMAIL_SECURE === 'true',
-    auth: {
+    auth: process.env.EMAIL_USER && process.env.EMAIL_PASSWORD ? {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
-    },
+    } : null,
   });
 };
 
@@ -19,7 +19,7 @@ const sendEmail = async (to, subject, html) => {
   if (!transporter) {
     setupTransporter();
   }
-
+  console.log("Hi Here");
   try {
     const info = await transporter.sendMail({
       from: `"Meeting Manager" <${process.env.EMAIL_FROM}>`,

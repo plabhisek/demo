@@ -23,6 +23,7 @@ mongoose.connect('mongodb://localhost:27017')
     process.exit(1);
   });
   const cors = require('cors');
-app.use(cors({
-  origin: 'http://localhost:3000' // Or whatever port your frontend runs on
-}));
+  app.use(cors({
+    origin: ['http://localhost:3000', 'http://0.0.0.0:3000'], // Allow frontend
+    credentials: true, // If using cookies
+  }));

@@ -4,7 +4,7 @@ const Meeting = require('../models/Meeting');
 const User = require('../models/User');
 const Stakeholder = require('../models/Stakeholder');
 const { sendEmail } = require('../config/email');
-const { reminderTemplate, checkInTemplate } = require('../utils/emailTemplates');
+const { reminderTemplate, checkInTemplate ,meetingCreatedTemplate } = require('../utils/emailTemplates');
 const { calculateNextMeetingDate } = require('../utils/dateUtils');
 
 // Get all meetings
@@ -92,11 +92,20 @@ const createMeeting = async (req, res) => {
     
     await meeting.save();
     
-    // Populate meeting data for response
+    // Populate meeting data for response and email
     const populatedMeeting = await Meeting.findById(meeting._id)
       .populate('stakeholder', 'name email company')
       .populate('assignedTo', 'name email')
       .populate('createdBy', 'name email');
+    
+    // Send email notification about the new meeting
+    const html = meetingCreatedTemplate(populatedMeeting);
+    
+    await sendEmail(
+      populatedMeeting.assignedTo.email,
+      `New Meeting: ${populatedMeeting.title} with ${populatedMeeting.stakeholder.name}`,
+      html
+    );
     
     res.status(201).json(populatedMeeting);
   } catch (error) {
