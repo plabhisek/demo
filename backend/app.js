@@ -8,7 +8,12 @@ const meetingRoutes = require('./routes/meetingRoutes');
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: '*',
+  allowedHeaders: '*',
+  credentials: true
+}));
 app.use(express.json());
 
 // Routes
