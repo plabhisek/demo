@@ -16,6 +16,7 @@ const reminderTemplate = (meeting) => {
           <p><strong>Title:</strong> ${meeting.title}</p>
           <p><strong>Stakeholder:</strong> ${meeting.stakeholder.name}</p>
           <p><strong>Date:</strong> ${meetingDate}</p>
+          <p><a href="${process.env.FRONTEND_URL}/meetings/${meeting._id}">Click here to view meeting details</a></p>
         </div>
         <p>Please ensure you are prepared for this meeting. You can view the meeting details and update its status by logging into the Meeting Management System.</p>
         <p>Thanks,<br>Meeting Management System</p>
@@ -41,6 +42,7 @@ const reminderTemplate = (meeting) => {
           <p><strong>Title:</strong> ${meeting.title}</p>
           <p><strong>Stakeholder:</strong> ${meeting.stakeholder.name}</p>
           <p><strong>Date:</strong> ${meetingDate}</p>
+          <p><a href="${process.env.FRONTEND_URL}/meetings/${meeting._id}">Click here to view meeting details</a></p>
         </div>
         <p>Did this meeting take place? Please log into the Meeting Management System to:</p>
         <ul>
@@ -71,6 +73,7 @@ const meetingCreatedTemplate = (meeting) => {
         <p><strong>Stakeholder:</strong> ${meeting.stakeholder.name} (${meeting.stakeholder.company})</p>
         <p><strong>Date:</strong> ${meetingDate}</p>
         <p><strong>Frequency:</strong> ${meeting.frequency}</p>
+        <p><a href="${process.env.FRONTEND_URL}/meetings/${meeting._id}">Click here to view meeting details</a></p>
         ${meeting.notes ? `<p><strong>Notes:</strong> ${meeting.notes}</p>` : ''}
       </div>
       <p>You can view the meeting details by logging into the Meeting Management System.</p>

@@ -4,7 +4,7 @@ const Meeting = require('../models/Meeting');
 const User = require('../models/User');
 const Stakeholder = require('../models/Stakeholder');
 const { sendEmail } = require('../config/email');
-const { reminderTemplate, checkInTemplate ,meetingCreatedTemplate } = require('../utils/emailTemplates');
+const { reminderTemplate, checkInTemplate, meetingCreatedTemplate } = require('../utils/emailTemplates');
 const { calculateNextMeetingDate } = require('../utils/dateUtils');
 
 // Get all meetings
@@ -29,7 +29,6 @@ const getAllMeetings = async (req, res) => {
 };
 
 // Get meeting by ID
-// Get meeting by ID
 const getMeetingById = async (req, res) => {
   try {
     const meeting = await Meeting.findById(req.params.id)
@@ -53,7 +52,6 @@ const getMeetingById = async (req, res) => {
   }
 };
 
-// Create meeting
 // Create meeting
 const createMeeting = async (req, res) => {
   try {
@@ -99,8 +97,11 @@ const createMeeting = async (req, res) => {
       .populate('assignedTo', 'name email')
       .populate('createdBy', 'name email');
     
-    // Send email notification about the new meeting
-    const html = meetingCreatedTemplate(populatedMeeting);
+    // Send email notification about the new meeting with direct link
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const meetingUrl = `${frontendUrl}/meetings/${meeting._id}`;
+    
+    const html = meetingCreatedTemplate(populatedMeeting, meetingUrl);
     
     await sendEmail(
       populatedMeeting.assignedTo.email,
@@ -301,8 +302,12 @@ const sendReminderManually = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     
-    // Send reminder email
-    const html = reminderTemplate(meeting);
+    // Create direct meeting URL
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const meetingUrl = `${frontendUrl}/meetings/${meeting._id}`;
+    
+    // Send reminder email with direct link
+    const html = reminderTemplate(meeting, meetingUrl);
     
     const emailResult = await sendEmail(
       meeting.assignedTo.email,
@@ -342,8 +347,12 @@ const sendCheckInManually = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     
-    // Send check-in email
-    const html = checkInTemplate(meeting);
+    // Create direct check-in URL 
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const checkInUrl = `${frontendUrl}/meetings/${meeting._id}/checkIn`;
+    
+    // Send check-in email with direct link
+    const html = checkInTemplate(meeting, checkInUrl);
     
     const emailResult = await sendEmail(
       meeting.assignedTo.email,
