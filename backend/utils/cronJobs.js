@@ -85,7 +85,7 @@ const sendReminders = async () => {
           await Promise.all(notificationPromises);
           
           // Mark reminder as sent
-          meeting.reminderSent = true;
+          meeting.reminderSent = false;
           await meeting.save();
           console.log(`Reminder notifications sent for meeting ${meeting._id}`);
         }
@@ -133,7 +133,7 @@ const sendCheckIns = async () => {
           await Promise.all(notificationPromises);
           
           // Mark check-in as sent
-          meeting.checkInSent = true;
+          meeting.checkInSent = false;
           await meeting.save();
           console.log(`Check-in notifications sent for meeting ${meeting._id}`);
         }
@@ -178,6 +178,7 @@ const updateMissedMeetings = async () => {
         meeting.checkInSent = false;
         // Increment total scheduled
         meeting.complianceStats.totalScheduled += 1;
+        meeting.status = 'scheduled';
         await meeting.save();
         console.log(`Meeting ${meeting._id} marked as missed and rescheduled`);
       }
@@ -192,7 +193,7 @@ const updateMissedMeetings = async () => {
  */
 const setupCronJobs = () => {
   // Send reminders at 8:00 AM every weekday (Monday-Friday)
-  const reminderJob = new cron.CronJob('0 8 * * 1-5', sendReminders);
+  const reminderJob = new cron.CronJob('0 11 * * 1-5', sendReminders);
   
   // Send check-ins at 3:00 PM every weekday (Monday-Friday)
   const checkInJob = new cron.CronJob('0 15 * * 1-5', sendCheckIns);

@@ -6,6 +6,7 @@ import Register from './components/auth/Register';
 import AdminDashboard from './components/dashboard/AdminDashboard';
 import UserDashboard from './components/dashboard/UserDashboard';
 import MeetingForm from './components/meetings/MeetingForm';
+import MeetingCalendarView from './components/meetings/MeetingCalendarView';
 import MeetingList from './components/meetings/MeetingList';
 import MeetingDetail from './components/meetings/MeetingDetail';
 import MoMForm from './components/meetings/MoMForm';
@@ -28,6 +29,7 @@ const AppRoutes = () => {
 
         {/* Meetings */}
         <Route path="/meetings" element={<MeetingList />} />
+        <Route path="/meetings/view/calendar" element={<MeetingCalendarView />} />
         <Route path="/meetings/new" element={<MeetingForm />} />
         <Route path="/meetings/:id" element={<MeetingDetail />} />
         <Route path="/meetings/:id/edit" element={<MeetingForm />} />

@@ -1,33 +1,8 @@
 const moment = require('moment-business-days');
 
-// Custom configuration for business days including odd Saturdays
+// Configure business days (Monday to Friday)
 moment.updateLocale('en', {
-  workingWeekdays: [1, 2, 3, 4, 5],
-  holidays: [],
-  holidayFormat: 'YYYY-MM-DD',
-  // Override the isBusinessDay method to handle odd Saturdays
-  isBusinessDay: function(date) {
-    const momentDate = moment(date);
-    
-    // Check if it's a regular business day (Mon-Fri)
-    if ([1, 2, 3, 4, 5].includes(momentDate.day())) {
-      return true;
-    }
-    
-    // Check if it's Saturday (day 6)
-    if (momentDate.day() === 6) {
-      // Get the day of the month
-      const dayOfMonth = momentDate.date();
-      
-      // Calculate which Saturday of the month it is
-      const weekOfMonth = Math.ceil(dayOfMonth / 7);
-      
-      // If the week number is odd, it's a working Saturday
-      return weekOfMonth % 2 === 1;
-    }
-    
-    return false;
-  }
+  workingWeekdays: [1, 2, 3, 4, 5]
 });
 
 // Calculate the next meeting date based on frequency
