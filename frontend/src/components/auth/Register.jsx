@@ -63,13 +63,13 @@ const Register = () => {
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email address
+              Email address (Optional)
             </label>
             <input
               id="email"
               type="email"
               {...register('email', { 
-                required: 'Email is required',
+                // Email is now optional but must be valid if provided
                 pattern: {
                   value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                   message: 'Invalid email address'
@@ -77,6 +77,9 @@ const Register = () => {
               })}
               className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
+            <p className="mt-1 text-xs text-gray-500">
+              If not provided, your email will be generated as employeeID@company.com
+            </p>
             {errors.email && (
               <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
             )}

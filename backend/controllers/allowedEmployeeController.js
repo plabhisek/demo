@@ -1,5 +1,5 @@
 const { validationResult } = require('express-validator');
-const AllowedEmployee = require('../models/AllowedEmployee');
+const AllowedEmployee = require('../models/allowedemployee');
 const User = require('../models/User');
 
 // Get all allowed employees

@@ -13,6 +13,7 @@ export default defineConfig({
     outDir: 'dist',
   },
   server: {
+    allowedHosts: ['shm.eslsteel.com'],
     port: 3000,
     open: true,
   },
