@@ -23,7 +23,12 @@ const authService = {
   checkAuth: async () => {
     try {
       const response = await api.get('/auth/verify');
-      return response.data;
+      // If verification succeeds, update the stored user data
+      if (response.data.valid && response.data.user) {
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        return response.data.user;
+      }
+      return null;
     } catch (error) {
       return null;
     }

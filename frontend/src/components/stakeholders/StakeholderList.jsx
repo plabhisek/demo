@@ -10,7 +10,7 @@ const StakeholderList = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(null);
-  const { isAdmin } = useAuth();
+  const {currentUser,isAdmin } = useAuth();
 
   useEffect(() => {
     fetchStakeholders();
@@ -127,12 +127,16 @@ const StakeholderList = () => {
                     <div className="text-sm text-gray-500">{stakeholder.position || '-'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <Link 
+                    {(isAdmin || stakeholder.createdBy?._id === currentUser?.id) && (
+                      <Link 
                       to={`/stakeholders/${stakeholder._id}/edit`}
                       className="text-blue-600 hover:text-blue-900 mr-4"
                     >
                       Edit
                     </Link>
+                    
+              )
+}
                     {isAdmin && (
                       confirmDelete === stakeholder._id ? (
                         <>

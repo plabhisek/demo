@@ -102,15 +102,15 @@ const MeetingDetail = () => {
   // Use nextMeetingDate which is the property used in MeetingList
   const meetingDate = meeting.nextMeetingDate || meeting.date;
   const isUpcoming = new Date(meetingDate) > new Date();
-  
+  console.log(currentUser?.id);
   // Check if user can edit meeting (admin, creator or assigned user)
   const canEdit = isAdmin || 
-    (meeting.createdBy && meeting.createdBy._id === currentUser?._id) || 
-    (meeting.assignedTo && meeting.assignedTo._id === currentUser?._id);
+    (meeting.createdBy && meeting.createdBy._id === currentUser?.id) || 
+    (meeting.assignedTo && meeting.assignedTo._id === currentUser?.id);
   
   // Check if user can add MoM (admin or assigned user)
   const canAddMoM = isAdmin || 
-    (meeting.assignedTo && meeting.assignedTo._id === currentUser?._id);
+    (meeting.assignedTo && meeting.assignedTo._id === currentUser?.id);
   
   // Get the latest MoM if available
   const latestMoM = meeting.minutesOfMeeting && meeting.minutesOfMeeting.length > 0 

@@ -39,10 +39,12 @@ const MissedMeetingForm = () => {
   const onSubmit = async (data) => {
     try {
       setSubmitting(true);
+      // Call the API to record the missed meeting reason
       await meetingService.addMissedReason(id, data);
       toast.success('Missed meeting reason recorded');
       navigate(`/meetings/${id}`);
     } catch (error) {
+      console.error('Error recording missed meeting:', error);
       toast.error(error.response?.data?.message || 'Failed to save reason');
     } finally {
       setSubmitting(false);

@@ -11,18 +11,22 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const user = authService.getCurrentUser();
-        if (user) {
+        const storedUser = authService.getCurrentUser();
+        if (storedUser) {
+          // Try to verify the token and get fresh user data
           const verifiedUser = await authService.checkAuth();
           if (verifiedUser) {
             setCurrentUser(verifiedUser);
           } else {
+            // If verification fails, log out
             authService.logout();
+            setCurrentUser(null);
           }
         }
       } catch (err) {
         setError(err.message);
         authService.logout();
+        setCurrentUser(null);
       } finally {
         setLoading(false);
       }

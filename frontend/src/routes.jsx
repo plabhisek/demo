@@ -11,7 +11,8 @@ import MeetingDetail from './components/meetings/MeetingDetail';
 import MoMForm from './components/meetings/MoMForm';
 import StakeholderForm from './components/stakeholders/StakeholderForm';
 import StakeholderList from './components/stakeholders/StakeholderList';
-
+import MeetingCheckIn from './components/meetings/MeetingCheckIn';
+import MissedMeetingForm from './components/meetings/MissedMeetingForm';
 const AppRoutes = () => {
   return (
     <Routes>
@@ -31,6 +32,8 @@ const AppRoutes = () => {
         <Route path="/meetings/:id" element={<MeetingDetail />} />
         <Route path="/meetings/:id/edit" element={<MeetingForm />} />
         <Route path="/meetings/:id/mom" element={<MoMForm />} />
+        <Route path="/meetings/:id/checkin" element={<MeetingCheckIn />} />
+        <Route path="/meetings/:id/missed" element={<MissedMeetingForm />} />
         <Route path="/meetings/:id/mom/:momId/edit" element={<MoMForm />} />
 
         {/* Stakeholders */}

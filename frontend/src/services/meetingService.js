@@ -33,8 +33,13 @@ const meetingService = {
   },
 
   addMissedReason: async (meetingId, reasonData) => {
-    const response = await api.post(`/meetings/${meetingId}/missed`, reasonData);
-    return response.data;
+    try {
+      const response = await api.post(`/meetings/${meetingId}/missed`, reasonData);
+      return response.data;
+    } catch (error) {
+      console.error('Error in addMissedReason:', error);
+      throw error;
+    }
   },
 
   sendReminderManually: async (meetingId) => {

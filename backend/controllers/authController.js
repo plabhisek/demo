@@ -58,7 +58,7 @@ const login = async (req, res) => {
         userId: user.id
       };
       
-      const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
+      const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1hr' });
       
       res.json({
         token,
@@ -96,8 +96,32 @@ const getCurrentUser = async (req, res) => {
 };
 
 // Verify token
-const verifyToken = (req, res) => {
-  res.json({ valid: true });
+const verifyToken = async (req, res) => {
+  try {
+    // Since we've passed the auth middleware, the token is valid
+    // Get user data to return with verification
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ valid: false, message: 'User not found' });
+    }
+    
+    // Return user info with verification
+    res.json({ 
+      valid: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        employeeID: user.employeeID,
+        department: user.department,
+        role: user.role,
+        active: user.active
+      }
+    });
+  } catch (error) {
+    console.error('Token verification error:', error);
+    res.status(500).json({ valid: false, message: 'Server error' });
+  }
 };
 
 module.exports = {

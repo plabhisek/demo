@@ -284,6 +284,9 @@ const AdminDashboard = () => {
           <Link to="/stakeholders/new" className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
             Add Stakeholder
           </Link>
+          <Link to="/reports" className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+            Generate Reports
+          </Link>
         </div>
       </div>
     </div>
