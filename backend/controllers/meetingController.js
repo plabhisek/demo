@@ -29,6 +29,7 @@ const getAllMeetings = async (req, res) => {
 };
 
 // Get meeting by ID
+// Get meeting by ID
 const getMeetingById = async (req, res) => {
   try {
     const meeting = await Meeting.findById(req.params.id)

@@ -6,17 +6,19 @@ import { format } from 'date-fns';
 import meetingService from '../../services/meetingService';
 
 const MoMForm = () => {
-  const { id, momId } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
   const [meeting, setMeeting] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [mom, setMom] = useState(null);
-  const isEditing = !!momId;
 
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm({
+    defaultValues: {
+      date: format(new Date(), 'yyyy-MM-dd'),
+    }
+  });
 
-  // Fetch meeting data and MoM if editing
+  // Fetch meeting data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -24,28 +26,6 @@ const MoMForm = () => {
         // Fetch meeting details
         const meetingData = await meetingService.getMeetingById(id);
         setMeeting(meetingData);
-
-        // If editing, fetch MoM details
-        if (isEditing) {
-          const momData = await meetingService.getMoMByMeetingId(id);
-          const currentMom = momData.find(m => m._id === momId);
-          if (currentMom) {
-            setMom(currentMom);
-            // Populate form with existing MoM data
-            setValue('title', currentMom.title);
-            setValue('attendees', currentMom.attendees.join(', '));
-            setValue('agenda', currentMom.agenda);
-            setValue('discussion', currentMom.discussion);
-            setValue('actionItems', currentMom.actionItems.map(item => 
-              `${item.task} - Assigned to: ${item.assignedTo} - Due: ${format(new Date(item.dueDate), 'yyyy-MM-dd')}`
-            ).join('\n'));
-            setValue('decisions', currentMom.decisions.join('\n'));
-            setValue('nextMeeting', currentMom.nextMeeting ? format(new Date(currentMom.nextMeeting), 'yyyy-MM-dd') : '');
-          } else {
-            toast.error('Minutes of Meeting not found');
-            navigate(`/meetings/${id}`);
-          }
-        }
       } catch (error) {
         toast.error(error.response?.data?.message || 'Failed to load data');
         navigate('/meetings');
@@ -55,47 +35,57 @@ const MoMForm = () => {
     };
 
     fetchData();
-  }, [id, momId, isEditing, setValue, navigate]);
+  }, [id, navigate]);
 
   const onSubmit = async (data) => {
     try {
       setSubmitting(true);
 
-      // Parse action items from text format
-      const actionItems = data.actionItems.split('\n').filter(line => line.trim()).map(line => {
-        const [task, rest] = line.split(' - Assigned to: ');
-        const [assignedTo, dueDate] = rest.split(' - Due: ');
-        return {
-          task: task.trim(),
-          assignedTo: assignedTo.trim(),
-          dueDate: dueDate.trim()
-        };
-      });
-
-      // Parse decisions from text format
-      const decisions = data.decisions.split('\n').filter(line => line.trim());
-
       // Parse attendees from comma-separated list
       const attendees = data.attendees.split(',').map(name => name.trim()).filter(name => name);
 
-      const momData = {
-        title: data.title,
-        attendees,
-        agenda: data.agenda,
-        discussion: data.discussion,
-        actionItems,
-        decisions,
-        nextMeeting: data.nextMeeting ? data.nextMeeting : null
-      };
+      // Parse action items if provided
+      let actionItems = [];
+      if (data.actionItems && data.actionItems.trim()) {
+        actionItems = data.actionItems.split('\n')
+          .filter(line => line.trim())
+          .map(line => {
+            // Default values if parsing fails
+            let task = line.trim();
+            let assignedTo = '';
+            let dueDate = null;
 
-      if (isEditing) {
-        await meetingService.updateMoM(id, momId, momData);
-        toast.success('Minutes of Meeting updated successfully');
-      } else {
-        await meetingService.createMoM(id, momData);
-        toast.success('Minutes of Meeting created successfully');
+            // Try to parse in format: Task - Assigned to: Person - Due: YYYY-MM-DD
+            const taskMatch = line.match(/(.*?)(?:\s+-\s+Assigned to:\s+(.*?))?(?:\s+-\s+Due:\s+(\d{4}-\d{2}-\d{2}))?$/);
+            
+            if (taskMatch) {
+              task = taskMatch[1].trim();
+              if (taskMatch[2]) assignedTo = taskMatch[2].trim();
+              if (taskMatch[3]) dueDate = taskMatch[3].trim();
+            }
+
+            return {
+              task,
+              assignedTo,
+              dueDate,
+              status: 'pending'
+            };
+          });
       }
 
+      const momData = {
+        date: data.date,
+        content: data.content,
+        attendees
+      };
+
+      if (actionItems.length > 0) {
+        momData.actionItems = actionItems;
+      }
+
+      // Use the addMinutesOfMeeting endpoint
+      await meetingService.addMinutesOfMeeting(id, momData);
+      toast.success('Minutes of Meeting added successfully');
       navigate(`/meetings/${id}`);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to save Minutes of Meeting');
@@ -114,30 +104,28 @@ const MoMForm = () => {
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold mb-6">
-        {isEditing ? 'Edit Minutes of Meeting' : 'Create Minutes of Meeting'}
-      </h1>
+      <h1 className="text-2xl font-bold mb-6">Add Minutes of Meeting</h1>
       
       {meeting && (
         <div className="mb-6 p-4 bg-blue-50 rounded-md">
           <h2 className="text-lg font-semibold">{meeting.title}</h2>
           <p className="text-gray-600">
-            Date: {format(new Date(meeting.date), 'MMMM d, yyyy')} at {format(new Date(meeting.date), 'h:mm a')}
+            Next Meeting Date: {format(new Date(meeting.nextMeetingDate), 'MMMM d, yyyy')}
           </p>
-          <p className="text-gray-600">Location: {meeting.location}</p>
+          <p className="text-gray-600">Stakeholder: {meeting.stakeholder?.name}</p>
         </div>
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700">MoM Title</label>
+          <label htmlFor="date" className="block text-sm font-medium text-gray-700">Meeting Date</label>
           <input
-            type="text"
-            id="title"
-            {...register('title', { required: 'Title is required' })}
+            type="date"
+            id="date"
+            {...register('date', { required: 'Date is required' })}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
-          {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>}
+          {errors.date && <p className="mt-1 text-sm text-red-600">{errors.date.message}</p>}
         </div>
 
         <div>
@@ -155,25 +143,15 @@ const MoMForm = () => {
         </div>
 
         <div>
-          <label htmlFor="agenda" className="block text-sm font-medium text-gray-700">Agenda</label>
+          <label htmlFor="content" className="block text-sm font-medium text-gray-700">Meeting Content</label>
           <textarea
-            id="agenda"
-            {...register('agenda', { required: 'Agenda is required' })}
-            rows="3"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          ></textarea>
-          {errors.agenda && <p className="mt-1 text-sm text-red-600">{errors.agenda.message}</p>}
-        </div>
-
-        <div>
-          <label htmlFor="discussion" className="block text-sm font-medium text-gray-700">Discussion</label>
-          <textarea
-            id="discussion"
-            {...register('discussion', { required: 'Discussion is required' })}
+            id="content"
+            {...register('content', { required: 'Content is required' })}
             rows="6"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            placeholder="Discussion points, decisions, and other relevant information..."
           ></textarea>
-          {errors.discussion && <p className="mt-1 text-sm text-red-600">{errors.discussion.message}</p>}
+          {errors.content && <p className="mt-1 text-sm text-red-600">{errors.content.message}</p>}
         </div>
 
         <div>
@@ -187,31 +165,6 @@ const MoMForm = () => {
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             placeholder="Follow up with client - Assigned to: John Doe - Due: 2023-12-31"
           ></textarea>
-        </div>
-
-        <div>
-          <label htmlFor="decisions" className="block text-sm font-medium text-gray-700">
-            Decisions Made (one per line)
-          </label>
-          <textarea
-            id="decisions"
-            {...register('decisions')}
-            rows="3"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            placeholder="Approved the project timeline"
-          ></textarea>
-        </div>
-
-        <div>
-          <label htmlFor="nextMeeting" className="block text-sm font-medium text-gray-700">
-            Next Meeting Date (if scheduled)
-          </label>
-          <input
-            type="date"
-            id="nextMeeting"
-            {...register('nextMeeting')}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
         </div>
 
         <div className="flex justify-end space-x-4">
@@ -236,7 +189,7 @@ const MoMForm = () => {
                 Saving...
               </span>
             ) : (
-              isEditing ? 'Update Minutes' : 'Save Minutes'
+              'Save Minutes'
             )}
           </button>
         </div>

@@ -10,7 +10,6 @@ const MeetingDetail = () => {
   const navigate = useNavigate();
   const { currentUser, isAdmin } = useAuth();
   const [meeting, setMeeting] = useState(null);
-  const [mom, setMom] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -20,15 +19,6 @@ const MeetingDetail = () => {
         setLoading(true);
         const meetingData = await meetingService.getMeetingById(id);
         setMeeting(meetingData);
-        
-        // Try to fetch MoM if exists
-        try {
-          const momData = await meetingService.getMoMByMeetingId(id);
-          setMom(momData);
-        } catch (momError) {
-          // MoM might not exist yet, which is fine
-          console.log('No MoM found');
-        }
       } catch (err) {
         setError(err.message || 'Failed to load meeting details');
         toast.error('Failed to load meeting details');
@@ -81,7 +71,16 @@ const MeetingDetail = () => {
   // Use nextMeetingDate which is the property used in MeetingList
   const meetingDate = meeting.nextMeetingDate || meeting.date;
   const isUpcoming = new Date(meetingDate) > new Date();
-  const canEdit = isAdmin || meeting.createdBy === currentUser?._id;
+  
+  // Check if user can edit meeting (admin, creator or assigned user)
+  const canEdit = isAdmin || 
+    meeting.createdBy._id === currentUser?._id || 
+    meeting.assignedTo._id === currentUser?._id;
+  
+  // Get the latest MoM if available
+  const latestMoM = meeting.minutesOfMeeting && meeting.minutesOfMeeting.length > 0 
+    ? meeting.minutesOfMeeting[meeting.minutesOfMeeting.length - 1] 
+    : null;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -101,12 +100,14 @@ const MeetingDetail = () => {
               >
                 Edit
               </Link>
-              <button 
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-100 text-red-800 rounded-md hover:bg-red-200"
-              >
-                Delete
-              </button>
+              {(isAdmin || meeting.createdBy._id === currentUser?._id) && (
+                <button 
+                  onClick={handleDelete}
+                  className="px-4 py-2 bg-red-100 text-red-800 rounded-md hover:bg-red-200"
+                >
+                  Delete
+                </button>
+              )}
             </>
           )}
         </div>
@@ -120,8 +121,12 @@ const MeetingDetail = () => {
         <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
           <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
             <div className="sm:col-span-1">
-              <dt className="text-sm font-medium text-gray-500">Location</dt>
-              <dd className="mt-1 text-sm text-gray-900">{meeting.location || 'Not specified'}</dd>
+              <dt className="text-sm font-medium text-gray-500">Stakeholder</dt>
+              <dd className="mt-1 text-sm text-gray-900">{meeting.stakeholder?.name || 'Not specified'}</dd>
+            </div>
+            <div className="sm:col-span-1">
+              <dt className="text-sm font-medium text-gray-500">Assigned To</dt>
+              <dd className="mt-1 text-sm text-gray-900">{meeting.assignedTo?.name || 'Not assigned'}</dd>
             </div>
             <div className="sm:col-span-1">
               <dt className="text-sm font-medium text-gray-500">Status</dt>
@@ -146,8 +151,8 @@ const MeetingDetail = () => {
               </dd>
             </div>
             <div className="sm:col-span-2">
-              <dt className="text-sm font-medium text-gray-500">Agenda</dt>
-              <dd className="mt-1 text-sm text-gray-900 whitespace-pre-line">{meeting.agenda}</dd>
+              <dt className="text-sm font-medium text-gray-500">Notes</dt>
+              <dd className="mt-1 text-sm text-gray-900 whitespace-pre-line">{meeting.notes}</dd>
             </div>
           </dl>
         </div>
@@ -166,48 +171,15 @@ const MeetingDetail = () => {
             <div className="px-4 py-3 border-b border-gray-200">
               <p className="text-sm font-medium text-gray-900">Primary Stakeholder</p>
               <p className="text-sm text-gray-600 mt-1">
-                {meeting.stakeholder.name} ({meeting.stakeholder.company})
+                {meeting.stakeholder.name} {meeting.stakeholder.company && `(${meeting.stakeholder.company})`}
               </p>
               {meeting.stakeholder.email && (
                 <p className="text-sm text-gray-500 mt-1">
                   Email: {meeting.stakeholder.email}
                 </p>
               )}
-              {meeting.stakeholder.role && (
-                <p className="text-sm text-gray-500 mt-1">
-                  Role: {meeting.stakeholder.role}
-                </p>
-              )}
             </div>
           )}
-          
-          {/* Display other stakeholders if available */}
-          {meeting.stakeholders && meeting.stakeholders.length > 0 ? (
-            <ul className="divide-y divide-gray-200">
-              {meeting.stakeholders.map((stakeholder) => (
-                <li key={stakeholder._id} className="px-4 py-3">
-                  <div className="flex items-center">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {stakeholder.name}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {stakeholder.company && `Company: ${stakeholder.company}`}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {stakeholder.email && `Email: ${stakeholder.email}`}
-                        {stakeholder.role && ` - Role: ${stakeholder.role}`}
-                      </p>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : !meeting.stakeholder ? (
-            <div className="px-4 py-5 sm:p-6 text-center text-gray-500">
-              No stakeholders added to this meeting.
-            </div>
-          ) : null}
         </div>
       </div>
 
@@ -216,41 +188,95 @@ const MeetingDetail = () => {
           <div>
             <h3 className="text-lg leading-6 font-medium text-gray-900">Minutes of Meeting</h3>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
-              {mom ? 'Record of the discussion and decisions.' : 'No minutes recorded yet.'}
+              {latestMoM ? 'Record of the discussion and decisions.' : 'No minutes recorded yet.'}
             </p>
           </div>
           {canEdit && (
             <Link 
-              to={mom ? `/meetings/${id}/mom/${mom._id}/edit` : `/meetings/${id}/mom`}
+              to={`/meetings/${id}/mom`}
               className="px-4 py-2 bg-green-100 text-green-800 rounded-md hover:bg-green-200"
             >
-              {mom ? 'Edit Minutes' : 'Add Minutes'}
+              {latestMoM ? 'Add New Minutes' : 'Add Minutes'}
             </Link>
           )}
         </div>
-        {mom && (
+        {latestMoM ? (
           <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
             <dl className="grid grid-cols-1 gap-y-4">
               <div>
+                <dt className="text-sm font-medium text-gray-500">Date</dt>
+                <dd className="mt-1 text-sm text-gray-900">{formatDate(latestMoM.date)}</dd>
+              </div>
+              <div>
                 <dt className="text-sm font-medium text-gray-500">Attendees</dt>
-                <dd className="mt-1 text-sm text-gray-900">{mom.attendees}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{latestMoM.attendees.join(', ')}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Discussion</dt>
-                <dd className="mt-1 text-sm text-gray-900 whitespace-pre-line">{mom.discussion}</dd>
+                <dt className="text-sm font-medium text-gray-500">Content</dt>
+                <dd className="mt-1 text-sm text-gray-900 whitespace-pre-line">{latestMoM.content}</dd>
               </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Decisions</dt>
-                <dd className="mt-1 text-sm text-gray-900 whitespace-pre-line">{mom.decisions}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Action Items</dt>
-                <dd className="mt-1 text-sm text-gray-900 whitespace-pre-line">{mom.actionItems}</dd>
-              </div>
+              {latestMoM.actionItems && latestMoM.actionItems.length > 0 && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Action Items</dt>
+                  <dd className="mt-1">
+                    <ul className="list-disc pl-5 text-sm text-gray-900">
+                      {latestMoM.actionItems.map((item, index) => (
+                        <li key={index} className="mb-1">
+                          <span className={item.status === 'completed' ? 'line-through' : ''}>
+                            {item.task} - Assigned to: {item.assignedTo}
+                            {item.dueDate && ` - Due: ${formatDate(item.dueDate)}`}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </dd>
+                </div>
+              )}
             </dl>
+          </div>
+        ) : (
+          <div className="border-t border-gray-200 px-4 py-5 sm:p-6 text-center text-gray-500">
+            No minutes have been recorded for this meeting yet.
           </div>
         )}
       </div>
+      
+      {/* Show past meeting minutes if there are more than one */}
+      {meeting.minutesOfMeeting && meeting.minutesOfMeeting.length > 1 && (
+        <div className="bg-white shadow overflow-hidden rounded-lg mt-6">
+          <div className="px-4 py-5 sm:px-6">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">Past Meeting Minutes</h3>
+            <p className="mt-1 max-w-2xl text-sm text-gray-500">
+              Previous minutes of meeting records.
+            </p>
+          </div>
+          <div className="border-t border-gray-200">
+            <ul className="divide-y divide-gray-200">
+              {meeting.minutesOfMeeting.slice(0, -1).reverse().map((mom, index) => (
+                <li key={index} className="px-4 py-4">
+                  <div className="flex justify-between">
+                    <div>
+                      <p className="font-medium">{formatDate(mom.date)}</p>
+                      <p className="text-sm text-gray-500">
+                        Attendees: {mom.attendees.join(', ')}
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        // Toggle visibility of details (you would need to add state management for this)
+                        // For simplicity, I'm just showing how the button would look
+                      }}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      View Details
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -27,6 +27,27 @@ const meetingService = {
   },
 
   // MoM (Minutes of Meeting) related methods
+  addMinutesOfMeeting: async (meetingId, momData) => {
+    const response = await api.post(`/meetings/${meetingId}/mom`, momData);
+    return response.data;
+  },
+
+  addMissedReason: async (meetingId, reasonData) => {
+    const response = await api.post(`/meetings/${meetingId}/missed`, reasonData);
+    return response.data;
+  },
+
+  sendReminderManually: async (meetingId) => {
+    const response = await api.post(`/meetings/${meetingId}/send-reminder`);
+    return response.data;
+  },
+
+  sendCheckInManually: async (meetingId) => {
+    const response = await api.post(`/meetings/${meetingId}/send-checkin`);
+    return response.data;
+  },
+
+  // MoM (Minutes of Meeting) related methods
   createMoM: async (meetingId, momData) => {
     const response = await api.post(`/meetings/${meetingId}/mom`, momData);
     return response.data;
