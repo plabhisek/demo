@@ -12,6 +12,8 @@ const MeetingDetail = () => {
   const [meeting, setMeeting] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Add state to track which past MoMs are expanded
+  const [expandedMoMs, setExpandedMoMs] = useState({});
 
   useEffect(() => {
     const fetchMeetingData = async () => {
@@ -50,6 +52,14 @@ const MeetingDetail = () => {
     } catch (error) {
       return 'Invalid date';
     }
+  };
+
+  // Toggle function for expanding/collapsing past MoMs
+  const toggleMoMDetails = (index) => {
+    setExpandedMoMs(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
   };
 
   if (loading) {
@@ -195,7 +205,7 @@ const MeetingDetail = () => {
               {latestMoM ? 'Record of the discussion and decisions.' : 'No minutes recorded yet.'}
             </p>
           </div>
-          {canAddMoM && ( // Updated to use canAddMoM instead of canEdit
+          {canAddMoM && (
             <Link 
               to={`/meetings/${id}/mom`}
               className="px-4 py-2 bg-green-100 text-green-800 rounded-md hover:bg-green-200"
@@ -266,15 +276,41 @@ const MeetingDetail = () => {
                       </p>
                     </div>
                     <button 
-                      onClick={() => {
-                        // Toggle visibility of details (you would need to add state management for this)
-                        // For simplicity, I'm just showing how the button would look
-                      }}
+                      onClick={() => toggleMoMDetails(index)}
                       className="text-blue-600 hover:text-blue-800"
                     >
-                      View Details
+                      {expandedMoMs[index] ? 'Hide Details' : 'View Details'}
                     </button>
                   </div>
+                  
+                  {/* Expandable content section */}
+                  {expandedMoMs[index] && (
+                    <div className="mt-4 bg-gray-50 p-4 rounded-md">
+                      <dl className="grid grid-cols-1 gap-y-4">
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Content</dt>
+                          <dd className="mt-1 text-sm text-gray-900 whitespace-pre-line">{mom.content}</dd>
+                        </div>
+                        {mom.actionItems && mom.actionItems.length > 0 && (
+                          <div>
+                            <dt className="text-sm font-medium text-gray-500">Action Items</dt>
+                            <dd className="mt-1">
+                              <ul className="list-disc pl-5 text-sm text-gray-900">
+                                {mom.actionItems.map((item, idx) => (
+                                  <li key={idx} className="mb-1">
+                                    <span className={item.status === 'completed' ? 'line-through' : ''}>
+                                      {item.task} - Assigned to: {item.assignedTo}
+                                      {item.dueDate && ` - Due: ${formatDate(item.dueDate)}`}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </dd>
+                          </div>
+                        )}
+                      </dl>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
