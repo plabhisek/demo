@@ -47,15 +47,25 @@ const MeetingList = () => {
     const now = new Date();
     
     if (filter === 'upcoming') {
-      return meetings.filter(meeting => new Date(meeting.date) >= now);
+      return meetings.filter(meeting => new Date(meeting.nextMeetingDate) >= now);
     } else if (filter === 'past') {
-      return meetings.filter(meeting => new Date(meeting.date) < now);
+      return meetings.filter(meeting => new Date(meeting.nextMeetingDate) < now);
     }
     
     return meetings;
   };
 
   const displayMeetings = filterMeetings();
+  
+  // Helper function to safely format dates
+  const formatDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return format(date, 'PPP p'); // Format as "Apr 29, 2023 12:34 PM"
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -111,11 +121,19 @@ const MeetingList = () => {
                     >
                       {meeting.title}
                     </Link>
-                    <p className="mt-1 text-sm text-gray-600 truncate">
-                      {format(new Date(meeting.date), 'PPP')} at {format(new Date(meeting.time), 'p')}
+                    <p className="mt-1 text-sm text-gray-600">
+                      {formatDate(meeting.nextMeetingDate)}
                     </p>
                     <p className="mt-1 text-sm text-gray-500">
-                      {meeting.stakeholders?.length || 0} stakeholders
+                      {meeting.stakeholder && (
+                        <span>Stakeholder: {meeting.stakeholder.name} ({meeting.stakeholder.company})</span>
+                      )}
+                    </p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Frequency: {meeting.frequency.charAt(0).toUpperCase() + meeting.frequency.slice(1)}
+                    </p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Status: {meeting.status.charAt(0).toUpperCase() + meeting.status.slice(1)}
                     </p>
                   </div>
                   <div className="flex space-x-2">
@@ -125,7 +143,7 @@ const MeetingList = () => {
                     >
                       View
                     </Link>
-                    {(isAdmin || meeting.createdBy === currentUser?._id) && (
+                    {(isAdmin || (meeting.createdBy && meeting.createdBy._id === currentUser?._id)) && (
                       <>
                         <Link 
                           to={`/meetings/${meeting._id}/edit`}
