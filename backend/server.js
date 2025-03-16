@@ -6,7 +6,7 @@ const { setupCronJobs } = require('./utils/cronJobs');
 const PORT = process.env.PORT || 5000;
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect('mongodb://localhost:27017')
   .then(() => {
     console.log('Connected to MongoDB');
     
