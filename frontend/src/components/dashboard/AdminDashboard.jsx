@@ -24,7 +24,7 @@ const AdminDashboard = () => {
         
         // Process data for dashboard
         const now = new Date();
-        const upcomingMeetings = meetings.filter(meeting => new Date(meeting.date) > now);
+        const upcomingMeetings = meetings.filter(meeting => new Date(meeting.nextMeetingDate) > now);
         const recentMeetings = meetings
           .sort((a, b) => new Date(b.date) - new Date(a.date))
           .slice(0, 5);
@@ -109,12 +109,12 @@ const AdminDashboard = () => {
                   <tr key={meeting._id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{meeting.title}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(meeting.date).toLocaleDateString()}
+                      {new Date(meeting.nextMeetingDate).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${new Date(meeting.date) > new Date() ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                        {new Date(meeting.date) > new Date() ? 'Upcoming' : 'Completed'}
+                        ${new Date(meeting.nextMeetingDate) > new Date() ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                        {new Date(meeting.nextMeetingDate) > new Date() ? 'Upcoming' : 'Completed'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
