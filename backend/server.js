@@ -22,3 +22,7 @@ mongoose.connect('mongodb://localhost:27017')
     console.error('MongoDB connection error:', err);
     process.exit(1);
   });
+  const cors = require('cors');
+app.use(cors({
+  origin: 'http://localhost:3000' // Or whatever port your frontend runs on
+}));

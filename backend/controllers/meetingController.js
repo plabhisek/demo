@@ -53,6 +53,7 @@ const getMeetingById = async (req, res) => {
 };
 
 // Create meeting
+// Create meeting
 const createMeeting = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -60,7 +61,11 @@ const createMeeting = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { title, stakeholderId, frequency, assignedToId, nextMeetingDate, notes } = req.body;
+    const { title, stakeholderId, frequency, nextMeetingDate, notes } = req.body;
+    
+    // For non-admin users, automatically assign the meeting to themselves
+    // For admin users, use the provided assignedToId
+    const assignedToId = req.user.role === 'admin' ? req.body.assignedToId : req.userId;
     
     // Validate stakeholder
     const stakeholder = await Stakeholder.findById(stakeholderId);

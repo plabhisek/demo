@@ -52,6 +52,16 @@ const MeetingDetail = () => {
     }
   };
 
+  // Helper function to safely format dates
+  const formatDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return format(date, 'PPP p'); // Format as "Apr 29, 2023 12:34 PM"
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -68,8 +78,9 @@ const MeetingDetail = () => {
     );
   }
 
-  const meetingDate = new Date(meeting.date);
-  const isUpcoming = meetingDate > new Date();
+  // Use nextMeetingDate which is the property used in MeetingList
+  const meetingDate = meeting.nextMeetingDate || meeting.date;
+  const isUpcoming = new Date(meetingDate) > new Date();
   const canEdit = isAdmin || meeting.createdBy === currentUser?._id;
 
   return (
@@ -78,7 +89,7 @@ const MeetingDetail = () => {
         <div>
           <h1 className="text-2xl font-bold">{meeting.title}</h1>
           <p className="text-gray-600">
-            {format(meetingDate, 'PPPP')} at {format(meetingDate, 'p')}
+            {formatDate(meetingDate)}
           </p>
         </div>
         <div className="flex space-x-2">
@@ -110,7 +121,7 @@ const MeetingDetail = () => {
           <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
             <div className="sm:col-span-1">
               <dt className="text-sm font-medium text-gray-500">Location</dt>
-              <dd className="mt-1 text-sm text-gray-900">{meeting.location}</dd>
+              <dd className="mt-1 text-sm text-gray-900">{meeting.location || 'Not specified'}</dd>
             </div>
             <div className="sm:col-span-1">
               <dt className="text-sm font-medium text-gray-500">Status</dt>
@@ -120,6 +131,18 @@ const MeetingDetail = () => {
                 }`}>
                   {isUpcoming ? 'Upcoming' : 'Completed'}
                 </span>
+              </dd>
+            </div>
+            <div className="sm:col-span-1">
+              <dt className="text-sm font-medium text-gray-500">Frequency</dt>
+              <dd className="mt-1 text-sm text-gray-900">
+                {meeting.frequency && (meeting.frequency.charAt(0).toUpperCase() + meeting.frequency.slice(1))}
+              </dd>
+            </div>
+            <div className="sm:col-span-1">
+              <dt className="text-sm font-medium text-gray-500">Meeting Status</dt>
+              <dd className="mt-1 text-sm text-gray-900">
+                {meeting.status && (meeting.status.charAt(0).toUpperCase() + meeting.status.slice(1))}
               </dd>
             </div>
             <div className="sm:col-span-2">
@@ -138,6 +161,27 @@ const MeetingDetail = () => {
           </div>
         </div>
         <div className="border-t border-gray-200">
+          {/* Display primary stakeholder if available */}
+          {meeting.stakeholder && (
+            <div className="px-4 py-3 border-b border-gray-200">
+              <p className="text-sm font-medium text-gray-900">Primary Stakeholder</p>
+              <p className="text-sm text-gray-600 mt-1">
+                {meeting.stakeholder.name} ({meeting.stakeholder.company})
+              </p>
+              {meeting.stakeholder.email && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Email: {meeting.stakeholder.email}
+                </p>
+              )}
+              {meeting.stakeholder.role && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Role: {meeting.stakeholder.role}
+                </p>
+              )}
+            </div>
+          )}
+          
+          {/* Display other stakeholders if available */}
           {meeting.stakeholders && meeting.stakeholders.length > 0 ? (
             <ul className="divide-y divide-gray-200">
               {meeting.stakeholders.map((stakeholder) => (
@@ -148,18 +192,22 @@ const MeetingDetail = () => {
                         {stakeholder.name}
                       </p>
                       <p className="text-sm text-gray-500">
-                        {stakeholder.email} - {stakeholder.role}
+                        {stakeholder.company && `Company: ${stakeholder.company}`}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {stakeholder.email && `Email: ${stakeholder.email}`}
+                        {stakeholder.role && ` - Role: ${stakeholder.role}`}
                       </p>
                     </div>
                   </div>
                 </li>
               ))}
             </ul>
-          ) : (
+          ) : !meeting.stakeholder ? (
             <div className="px-4 py-5 sm:p-6 text-center text-gray-500">
               No stakeholders added to this meeting.
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 

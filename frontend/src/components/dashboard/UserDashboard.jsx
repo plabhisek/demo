@@ -24,19 +24,18 @@ const UserDashboard = () => {
         
         // Filter meetings where user is a participant or organizer
         const userMeetings = allMeetings.filter(meeting => 
-          meeting.participants.includes(currentUser._id) || 
+          Array.isArray(meeting.participants) && meeting.participants.includes(currentUser._id) || 
           meeting.organizer === currentUser._id
         );
-        
         // Split into upcoming and past meetings
         const upcomingMeetings = userMeetings
-          .filter(meeting => new Date(meeting.date) > now)
-          .sort((a, b) => new Date(a.date) - new Date(b.date))
+          .filter(meeting => new Date(meeting.nextMeetingDate) > now)
+          .sort((a, b) => new Date(a.nextMeetingDate) - new Date(b.nextMeetingDate))
           .slice(0, 5);
           
         const recentMeetings = userMeetings
-          .filter(meeting => new Date(meeting.date) <= now)
-          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .filter(meeting => new Date(meeting.nextMeetingDate) <= now)
+          .sort((a, b) => new Date(b.nextMeetingDate) - new Date(a.nextMeetingDate))
           .slice(0, 5);
         
         setMeetings({
@@ -102,10 +101,10 @@ const UserDashboard = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-blue-600 font-medium">
-                      {format(new Date(meeting.date), 'MMM d, yyyy')}
+                      {format(new Date(meeting.nextMeetingDate), 'MMM d, yyyy')}
                     </p>
                     <p className="text-gray-600 text-sm">
-                      {format(new Date(meeting.date), 'h:mm a')}
+                      {format(new Date(meeting.nextMeetingDate), 'h:mm a')}
                     </p>
                   </div>
                 </div>
@@ -142,7 +141,7 @@ const UserDashboard = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-gray-600">
-                      {format(new Date(meeting.date), 'MMM d, yyyy')}
+                      {format(new Date(meeting.nextMeetingDate), 'MMM d, yyyy')}
                     </p>
                     <div className="mt-1">
                       {meeting.mom ? (

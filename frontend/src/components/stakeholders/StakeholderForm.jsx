@@ -125,8 +125,8 @@ const StakeholderForm = () => {
             </label>
             <input
               type="text"
-              id="organization"
-              {...register('organization')}
+              id="company"
+              {...register('company')}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -137,8 +137,8 @@ const StakeholderForm = () => {
             </label>
             <input
               type="text"
-              id="role"
-              {...register('role')}
+              id="position"
+              {...register('position')}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
           </div>

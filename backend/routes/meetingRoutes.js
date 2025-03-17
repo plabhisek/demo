@@ -1,5 +1,5 @@
 const express = require('express');
-const { check } = require('express-validator');
+const { check, body } = require('express-validator');
 const { 
   getAllMeetings, 
   getMeetingById, 
@@ -37,7 +37,14 @@ router.post(
     check('title', 'Title is required').not().isEmpty(),
     check('stakeholderId', 'Stakeholder ID is required').not().isEmpty(),
     check('frequency', 'Valid frequency is required').isIn(['weekly', 'biweekly', 'monthly', 'quarterly']),
-    check('assignedToId', 'Assigned user ID is required').not().isEmpty(),
+    // Make assignedToId validation conditional based on user role
+    body('assignedToId').custom((value, { req }) => {
+      // Only require assignedToId for admin users
+      if (req.user.role === 'admin' && !value) {
+        throw new Error('Assigned user ID is required');
+      }
+      return true;
+    }),
     check('nextMeetingDate', 'Next meeting date is required').isISO8601()
   ],
   createMeeting
