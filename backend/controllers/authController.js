@@ -26,6 +26,7 @@ const login = async (req, res) => {
           email: ldapResult.mail || `${employeeID}@vedanta.co.in`, // Use mail from LDAP response
           employeeID,
           department: ldapResult.department || '',
+          mobile: ldapResult.mobile || '',
           active: true
         });
         
@@ -68,6 +69,7 @@ const login = async (req, res) => {
           email: user.email,
           employeeID: user.employeeID,
           department: user.department,
+          mobile: user.mobile,
           role: user.role,
           active: user.active
         }
@@ -114,6 +116,7 @@ const verifyToken = async (req, res) => {
         email: user.email,
         employeeID: user.employeeID,
         department: user.department,
+        mobile: user.mobile,
         role: user.role,
         active: user.active
       }

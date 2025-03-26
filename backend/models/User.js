@@ -23,6 +23,11 @@ const UserSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  mobile: {
+    type: String,
+    unique: true,
+    trim: true
+  },
   role: {
     type: String,
     enum: ['admin', 'user'],

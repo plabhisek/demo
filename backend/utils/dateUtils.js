@@ -59,26 +59,53 @@ const getFirstWorkingDay = (date, frequency) => {
 // Get the last working day of a period
 const getLastWorkingDay = (date, frequency) => {
   const momentDate = moment(date);
+  let result;
   
   switch (frequency) {
     case 'weekly':
-      // End of the week, ensure it's a business day
-      return momentDate.endOf('week').lastBusinessDay().toDate();
+      // End of the week, find the last business day
+      result = momentDate.endOf('week').clone();
+      // Go backwards until we find a business day
+      while (!result.isBusinessDay()) {
+        result.subtract(1, 'days');
+      }
+      return result.toDate();
     
     case 'biweekly':
-      // End of the 2-week period, ensure it's a business day
-      return momentDate.add(1, 'weeks').endOf('week').lastBusinessDay().toDate();
+      // End of the 2-week period, find the last business day
+      result = momentDate.add(1, 'weeks').endOf('week').clone();
+      // Go backwards until we find a business day
+      while (!result.isBusinessDay()) {
+        result.subtract(1, 'days');
+      }
+      return result.toDate();
     
     case 'monthly':
-      // End of the month, ensure it's a business day
-      return momentDate.endOf('month').lastBusinessDay().toDate();
+      // End of the month, find the last business day
+      result = momentDate.endOf('month').clone();
+      // Go backwards until we find a business day
+      while (!result.isBusinessDay()) {
+        result.subtract(1, 'days');
+      }
+      return result.toDate();
     
     case 'quarterly':
-      // End of the quarter, ensure it's a business day
-      return momentDate.endOf('quarter').lastBusinessDay().toDate();
+      // End of the quarter, find the last business day
+      result = momentDate.endOf('quarter').clone();
+      // Go backwards until we find a business day
+      while (!result.isBusinessDay()) {
+        result.subtract(1, 'days');
+      }
+      return result.toDate();
     
     default:
-      return momentDate.lastBusinessDay().toDate();
+      // Default to finding the last business day of the current week
+      result = momentDate.clone();
+      // Go backwards until we find a business day
+      while (!result.isBusinessDay()) {
+        result.subtract(1, 'days');
+      }
+      return result.toDate();
   }
 };
 

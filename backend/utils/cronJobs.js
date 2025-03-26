@@ -5,7 +5,10 @@ const User = require('../models/User');
 const Stakeholder = require('../models/Stakeholder');
 const { sendEmail } = require('../config/email');
 const { reminderTemplate, checkInTemplate } = require('./emailTemplates');
-const { getFirstWorkingDay, getLastWorkingDay, isToday } = require('./dateUtils');
+// In backend/utils/cronJobs.js
+// Update this line:
+const { getFirstWorkingDay, getLastWorkingDay, isTodayFirstWorkingDay, isTodayLastWorkingDay, calculateNextMeetingDate } = require('./dateUtils');
+//const { getFirstWorkingDay, getLastWorkingDay, isToday } = require('./dateUtils');
 
 /**
  * Send meeting reminder emails
@@ -28,7 +31,7 @@ const sendReminders = async () => {
       const firstWorkingDay = getFirstWorkingDay(meeting.nextMeetingDate, meeting.frequency);
       
       // Check if today is the first working day
-      if (isToday(firstWorkingDay)) {
+      if (isTodayFirstWorkingDay(meeting.nextMeetingDate, meeting.frequency)) {
         // Get stakeholder and user info
         const stakeholder = await Stakeholder.findById(meeting.stakeholder);
         const user = await User.findById(meeting.assignedTo);
@@ -79,7 +82,7 @@ const sendCheckIns = async () => {
       const lastWorkingDay = getLastWorkingDay(meeting.nextMeetingDate, meeting.frequency);
       
       // Check if today is the last working day
-      if (isToday(lastWorkingDay)) {
+      if (isTodayLastWorkingDay(meeting.nextMeetingDate, meeting.frequency)) {
         // Get stakeholder and user info
         const stakeholder = await Stakeholder.findById(meeting.stakeholder);
         const user = await User.findById(meeting.assignedTo);
@@ -156,7 +159,7 @@ const updateMissedMeetings = async () => {
  */
 const setupCronJobs = () => {
   // Send reminders at 8:00 AM every weekday (Monday-Friday)
-  const reminderJob = new cron.CronJob('0 8 * * 1-5', sendReminders);
+  const reminderJob = new cron.CronJob('0 16 * * 1-5', sendReminders);
   
   // Send check-ins at 3:00 PM every weekday (Monday-Friday)
   const checkInJob = new cron.CronJob('0 15 * * 1-5', sendCheckIns);
