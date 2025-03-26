@@ -4,8 +4,45 @@ const Meeting = require('../models/Meeting');
 const User = require('../models/User');
 const Stakeholder = require('../models/Stakeholder');
 const { sendEmail } = require('../config/email');
-const { reminderTemplate, checkInTemplate, meetingCreatedTemplate } = require('../utils/emailTemplates');
+const { sendWhatsAppMessage } = require('../utils/whatsappNotification');
+const { 
+  reminderTemplate, 
+  checkInTemplate, 
+  meetingCreatedTemplate 
+} = require('../utils/emailTemplates');
+const { 
+  generateWhatsAppMessage, 
+  generateReminderWhatsAppMessage, 
+  generateCheckInWhatsAppMessage 
+} = require('../utils/whatsappMessageTemplate');
 const { calculateNextMeetingDate } = require('../utils/dateUtils');
+
+// Helper function to send notifications
+const sendNotifications = async (user, meeting, emailTemplate, emailSubject, whatsappMessage) => {
+  try {
+    // Send email
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const meetingUrl = `${frontendUrl}/meetings/${meeting._id}`;
+    const html = emailTemplate(meeting, meetingUrl);
+    
+    const emailResult = await sendEmail(user.email, emailSubject, html);
+    
+    // Send WhatsApp message if mobile number exists
+    let whatsappResult = null;
+    if (user.mobile) {
+      try {
+        whatsappResult = await sendWhatsAppMessage(user.mobile, whatsappMessage);
+      } catch (error) {
+        console.error('WhatsApp notification failed:', error);
+      }
+    }
+    
+    return { emailResult, whatsappResult };
+  } catch (error) {
+    console.error('Notification sending error:', error);
+    return { error: true, message: error.message };
+  }
+};
 
 // Get all meetings
 const getAllMeetings = async (req, res) => {
@@ -86,30 +123,35 @@ const createMeeting = async (req, res) => {
       assignedTo: assignedToId,
       nextMeetingDate: new Date(nextMeetingDate),
       notes,
-      createdBy: req.userId
+      createdBy: req.userId,
+      status: 'scheduled'
     });
     
     await meeting.save();
     
-    // Populate meeting data for response and email
+    // Populate meeting data for response and notifications
     const populatedMeeting = await Meeting.findById(meeting._id)
       .populate('stakeholder', 'name email company')
-      .populate('assignedTo', 'name email')
+      .populate('assignedTo', 'name email mobile')
       .populate('createdBy', 'name email');
     
-    // Send email notification about the new meeting with direct link
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const meetingUrl = `${frontendUrl}/meetings/${meeting._id}`;
+    // Prepare WhatsApp message
+    const whatsappMessage = generateWhatsAppMessage(populatedMeeting);
+  //const whatsappMessage = `New Meeting Scheduled: ${populatedMeeting.title} with ${populatedMeeting.stakeholder.name} on ${new Date(populatedMeeting.nextMeetingDate).toLocaleDateString()}`;
     
-    const html = meetingCreatedTemplate(populatedMeeting, meetingUrl);
-    
-    await sendEmail(
-      populatedMeeting.assignedTo.email,
+    // Send notifications
+    const notificationResult = await sendNotifications(
+      populatedMeeting.assignedTo, 
+      populatedMeeting, 
+      meetingCreatedTemplate, 
       `New Meeting: ${populatedMeeting.title} with ${populatedMeeting.stakeholder.name}`,
-      html
+      whatsappMessage
     );
     
-    res.status(201).json(populatedMeeting);
+    res.status(201).json({
+      meeting: populatedMeeting,
+      notifications: notificationResult
+    });
   } catch (error) {
     console.error('Create meeting error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -288,42 +330,40 @@ const addMissedReason = async (req, res) => {
 // Send reminder manually
 const sendReminderManually = async (req, res) => {
   try {
-    // Find meeting
     const meeting = await Meeting.findById(req.params.id)
       .populate('stakeholder', 'name email')
-      .populate('assignedTo', 'name email');
+      .populate('assignedTo', 'name email mobile');
     
     if (!meeting) {
       return res.status(404).json({ message: 'Meeting not found' });
     }
     
-    // Check if user is admin or assigned to the meeting
+    // Check user permissions
     if (req.user.role !== 'admin' && meeting.assignedTo._id.toString() !== req.userId.toString()) {
       return res.status(403).json({ message: 'Access denied' });
     }
     
-    // Create direct meeting URL
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const meetingUrl = `${frontendUrl}/meetings/${meeting._id}`;
-    
-    // Send reminder email with direct link
-    const html = reminderTemplate(meeting, meetingUrl);
-    
-    const emailResult = await sendEmail(
-      meeting.assignedTo.email,
-      `Reminder: Meeting with ${meeting.stakeholder.name} on ${new Date(meeting.nextMeetingDate).toDateString()}`,
-      html
+    // Prepare WhatsApp message
+    //const whatsappMessage = `Reminder: Meeting with ${meeting.stakeholder.name} on ${new Date(meeting.nextMeetingDate).toLocaleDateString()}`;
+    const whatsappMessage = generateReminderWhatsAppMessage(meeting);
+    // Send notifications
+    const notificationResult = await sendNotifications(
+      meeting.assignedTo, 
+      meeting, 
+      reminderTemplate, 
+      `Reminder: Meeting with ${meeting.stakeholder.name}`,
+      whatsappMessage
     );
-    
-    if (!emailResult.success) {
-      return res.status(500).json({ message: 'Failed to send reminder email' });
-    }
     
     // Update meeting
     meeting.reminderSent = true;
     await meeting.save();
     
-    res.json({ message: 'Reminder sent successfully', meeting });
+    res.json({ 
+      message: 'Reminder sent successfully', 
+      meeting,
+      notifications: notificationResult
+    });
   } catch (error) {
     console.error('Send reminder error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -333,42 +373,40 @@ const sendReminderManually = async (req, res) => {
 // Send check-in manually
 const sendCheckInManually = async (req, res) => {
   try {
-    // Find meeting
     const meeting = await Meeting.findById(req.params.id)
       .populate('stakeholder', 'name email')
-      .populate('assignedTo', 'name email');
+      .populate('assignedTo', 'name email mobile');
     
     if (!meeting) {
       return res.status(404).json({ message: 'Meeting not found' });
     }
     
-    // Check if user is admin or assigned to the meeting
+    // Check user permissions
     if (req.user.role !== 'admin' && meeting.assignedTo._id.toString() !== req.userId.toString()) {
       return res.status(403).json({ message: 'Access denied' });
     }
     
-    // Create direct check-in URL 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const checkInUrl = `${frontendUrl}/meetings/${meeting._id}/checkIn`;
-    
-    // Send check-in email with direct link
-    const html = checkInTemplate(meeting, checkInUrl);
-    
-    const emailResult = await sendEmail(
-      meeting.assignedTo.email,
+    // Prepare WhatsApp message
+    //const whatsappMessage = `Check-in: Did you meet with ${meeting.stakeholder.name}? Please update in the system.`;
+    const whatsappMessage = generateCheckInWhatsAppMessage(meeting);
+    // Send notifications
+    const notificationResult = await sendNotifications(
+      meeting.assignedTo, 
+      meeting, 
+      checkInTemplate, 
       `Check-in: Did you meet with ${meeting.stakeholder.name}?`,
-      html
+      whatsappMessage
     );
-    
-    if (!emailResult.success) {
-      return res.status(500).json({ message: 'Failed to send check-in email' });
-    }
     
     // Update meeting
     meeting.checkInSent = true;
     await meeting.save();
     
-    res.json({ message: 'Check-in sent successfully', meeting });
+    res.json({ 
+      message: 'Check-in sent successfully', 
+      meeting,
+      notifications: notificationResult
+    });
   } catch (error) {
     console.error('Send check-in error:', error);
     res.status(500).json({ message: 'Server error' });
