@@ -25,8 +25,7 @@ router.get('/:id', getStakeholderById);
 router.post(
   '/',
   [
-    check('name', 'Name is required').not().isEmpty(),
-    check('email', 'Please include a valid email').isEmail()
+    check('name', 'Name is required').not().isEmpty()
   ],
   createStakeholder
 );
