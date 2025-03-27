@@ -16,6 +16,11 @@ const stakeholderService = {
     return response.data;
   },
 
+  bulkCreateStakeholders: async (stakeholdersData) => {
+    const response = await api.post('/stakeholders/bulk', stakeholdersData);
+    return response.data;
+  },
+
   updateStakeholder: async (id, stakeholderData) => {
     const response = await api.put(`/stakeholders/${id}`, stakeholderData);
     return response.data;
