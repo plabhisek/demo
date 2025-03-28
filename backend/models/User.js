@@ -9,14 +9,13 @@ const UserSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
     trim: true,
     lowercase: true
   },
   employeeID: {
     type: String,
     required: true,
-    unique: true,
+    unique:true,
     trim: true
   },
   department: {
