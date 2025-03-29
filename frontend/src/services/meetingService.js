@@ -12,14 +12,25 @@ const meetingService = {
   },
 
   createMeeting: async (meetingData) => {
+    // Ensure assignedToIds is an array
+    if (!Array.isArray(meetingData.assignedToIds)) {
+      meetingData.assignedToIds = [meetingData.assignedToIds];
+    }
+    
     const response = await api.post('/meetings', meetingData);
     return response.data;
   },
 
   updateMeeting: async (id, meetingData) => {
+    // Ensure assignedToIds is an array
+    if (meetingData.assignedToIds && !Array.isArray(meetingData.assignedToIds)) {
+      meetingData.assignedToIds = [meetingData.assignedToIds];
+    }
+    
     const response = await api.put(`/meetings/${id}`, meetingData);
     return response.data;
   },
+
 
   deleteMeeting: async (id) => {
     const response = await api.delete(`/meetings/${id}`);

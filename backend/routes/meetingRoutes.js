@@ -14,7 +14,6 @@ const {
 const auth = require('../middleware/auth');
 
 const router = express.Router();
-
 // All routes require authentication
 router.use(auth);
 
@@ -37,11 +36,11 @@ router.post(
     check('title', 'Title is required').not().isEmpty(),
     check('stakeholderId', 'Stakeholder ID is required').not().isEmpty(),
     check('frequency', 'Valid frequency is required').isIn(['weekly', 'biweekly', 'monthly', 'quarterly']),
-    // Make assignedToId validation conditional based on user role
-    body('assignedToId').custom((value, { req }) => {
-      // Only require assignedToId for admin users
-      if (req.user.role === 'admin' && !value) {
-        throw new Error('Assigned user ID is required');
+    // Make assignedToIds validation conditional based on user role
+    body('assignedToIds').custom((value, { req }) => {
+      // Only require assignedToIds for admin users
+      if (req.user.role === 'admin' && (!value || value.length === 0)) {
+        throw new Error('At least one user must be assigned');
       }
       return true;
     }),

@@ -109,8 +109,11 @@ const MeetingDetail = () => {
     (meeting.assignedTo && meeting.assignedTo._id === currentUser?.id);
   
   // Check if user can add MoM (admin or assigned user)
-  const canAddMoM = isAdmin || 
-    (meeting.assignedTo && meeting.assignedTo._id === currentUser?.id);
+  console.log(meeting.assignedTo);
+  const canAddMoM = isAdmin ||
+    (meeting.assignedTo && meeting.assignedTo.some(
+        assignedUser => assignedUser._id === currentUser?.id
+    ));
   
   // Get the latest MoM if available
   const latestMoM = meeting.minutesOfMeeting && meeting.minutesOfMeeting.length > 0 
@@ -165,9 +168,13 @@ const MeetingDetail = () => {
               <dd className="mt-1 text-sm text-gray-900">{meeting.stakeholder?.name || 'Not specified'}</dd>
             </div>
             <div className="sm:col-span-1">
-              <dt className="text-sm font-medium text-gray-500">Assigned To</dt>
-              <dd className="mt-1 text-sm text-gray-900">{meeting.assignedTo?.name || 'Not assigned'}</dd>
-            </div>
+  <dt className="text-sm font-medium text-gray-500">Assigned To</dt>
+  <dd className="mt-1 text-sm text-gray-900">
+    {meeting.assignedTo?.length > 0 
+      ? meeting.assignedTo.map(user => user.name).join(', ') 
+      : 'Not assigned'}
+  </dd>
+</div>
             <div className="sm:col-span-1">
               <dt className="text-sm font-medium text-gray-500">Status</dt>
               <dd className="mt-1 text-sm">

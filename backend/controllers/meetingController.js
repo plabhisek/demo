@@ -1,5 +1,4 @@
 const { validationResult } = require('express-validator');
-const moment = require('moment-business-days');
 const Meeting = require('../models/Meeting');
 const User = require('../models/User');
 const Stakeholder = require('../models/Stakeholder');
@@ -78,7 +77,11 @@ const getMeetingById = async (req, res) => {
     }
     
     // Check if user is admin or assigned to the meeting
-    if (req.user.role !== 'admin' && meeting.assignedTo._id.toString() !== req.userId.toString()) {
+    const isAssignedUser = meeting.assignedTo.some(
+      user => user._id.toString() === req.userId.toString()
+    );
+    
+    if (req.user.role !== 'admin' && !isAssignedUser) {
       return res.status(403).json({ message: 'Access denied' });
     }
     
@@ -97,11 +100,19 @@ const createMeeting = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { title, stakeholderId, frequency, nextMeetingDate, notes } = req.body;
+    const { 
+      title, 
+      stakeholderId, 
+      frequency, 
+      assignedToIds, // Changed to support multiple user IDs
+      nextMeetingDate, 
+      notes 
+    } = req.body;
     
     // For non-admin users, automatically assign the meeting to themselves
-    // For admin users, use the provided assignedToId
-    const assignedToId = req.user.role === 'admin' ? req.body.assignedToId : req.userId;
+    const finalAssignedToIds = req.user.role === 'admin' 
+      ? assignedToIds || [req.userId]
+      : [req.userId];
     
     // Validate stakeholder
     const stakeholder = await Stakeholder.findById(stakeholderId);
@@ -109,9 +120,13 @@ const createMeeting = async (req, res) => {
       return res.status(400).json({ message: 'Invalid stakeholder' });
     }
     
-    // Validate assigned user
-    const assignedUser = await User.findById(assignedToId);
-    if (!assignedUser || !assignedUser.active) {
+    // Validate assigned users
+    const assignedUsers = await User.find({
+      _id: { $in: finalAssignedToIds },
+      active: true
+    });
+    
+    if (assignedUsers.length !== finalAssignedToIds.length) {
       return res.status(400).json({ message: 'Invalid user assignment' });
     }
     
@@ -120,7 +135,7 @@ const createMeeting = async (req, res) => {
       title,
       stakeholder: stakeholderId,
       frequency,
-      assignedTo: assignedToId,
+      assignedTo: finalAssignedToIds,
       nextMeetingDate: new Date(nextMeetingDate),
       notes,
       createdBy: req.userId,
@@ -129,28 +144,29 @@ const createMeeting = async (req, res) => {
     
     await meeting.save();
     
-    // Populate meeting data for response and notifications
+    // Populate meeting data
     const populatedMeeting = await Meeting.findById(meeting._id)
       .populate('stakeholder', 'name email company')
       .populate('assignedTo', 'name email mobile')
       .populate('createdBy', 'name email');
     
-    // Prepare WhatsApp message
-    const whatsappMessage = generateWhatsAppMessage(populatedMeeting);
-  //const whatsappMessage = `New Meeting Scheduled: ${populatedMeeting.title} with ${populatedMeeting.stakeholder.name} on ${new Date(populatedMeeting.nextMeetingDate).toLocaleDateString()}`;
+    // Send notifications to all assigned users
+    const notificationPromises = populatedMeeting.assignedTo.map(user => {
+      const whatsappMessage = generateWhatsAppMessage(populatedMeeting);
+      return sendNotifications(
+        user, 
+        populatedMeeting, 
+        meetingCreatedTemplate, 
+        `New Meeting: ${populatedMeeting.title} with ${populatedMeeting.stakeholder.name}`,
+        whatsappMessage
+      );
+    });
     
-    // Send notifications
-    const notificationResult = await sendNotifications(
-      populatedMeeting.assignedTo, 
-      populatedMeeting, 
-      meetingCreatedTemplate, 
-      `New Meeting: ${populatedMeeting.title} with ${populatedMeeting.stakeholder.name}`,
-      whatsappMessage
-    );
+    const notificationResults = await Promise.all(notificationPromises);
     
     res.status(201).json({
       meeting: populatedMeeting,
-      notifications: notificationResult
+      notifications: notificationResults
     });
   } catch (error) {
     console.error('Create meeting error:', error);
@@ -166,7 +182,15 @@ const updateMeeting = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { title, stakeholderId, frequency, assignedToId, nextMeetingDate, notes, active } = req.body;
+    const { 
+      title, 
+      stakeholderId, 
+      frequency, 
+      assignedToIds, 
+      nextMeetingDate, 
+      notes, 
+      active 
+    } = req.body;
     
     // Find meeting
     const meeting = await Meeting.findById(req.params.id);
@@ -176,7 +200,11 @@ const updateMeeting = async (req, res) => {
     }
     
     // Check if user is admin or assigned to the meeting
-    if (req.user.role !== 'admin' && meeting.assignedTo.toString() !== req.userId.toString()) {
+    const isAssignedUser = meeting.assignedTo.some(
+      id => id.toString() === req.userId.toString()
+    );
+    
+    if (req.user.role !== 'admin' && !isAssignedUser) {
       return res.status(403).json({ message: 'Access denied' });
     }
     
@@ -193,12 +221,18 @@ const updateMeeting = async (req, res) => {
     
     if (frequency) meeting.frequency = frequency;
     
-    if (assignedToId) {
-      const assignedUser = await User.findById(assignedToId);
-      if (!assignedUser || !assignedUser.active) {
+    if (assignedToIds) {
+      // Validate assigned users
+      const assignedUsers = await User.find({
+        _id: { $in: assignedToIds },
+        active: true
+      });
+      
+      if (assignedUsers.length !== assignedToIds.length) {
         return res.status(400).json({ message: 'Invalid user assignment' });
       }
-      meeting.assignedTo = assignedToId;
+      
+      meeting.assignedTo = assignedToIds;
     }
     
     if (nextMeetingDate) meeting.nextMeetingDate = new Date(nextMeetingDate);
@@ -243,7 +277,11 @@ const addMinutesOfMeeting = async (req, res) => {
     }
     
     // Check if user is assigned to the meeting
-    if (req.user.role !== 'admin' && meeting.assignedTo.toString() !== req.userId.toString()) {
+    const isAssignedUser = meeting.assignedTo.some(
+      id => id.toString() === req.userId.toString()
+    );
+    
+    if (req.user.role !== 'admin' && !isAssignedUser) {
       return res.status(403).json({ message: 'Access denied' });
     }
     
@@ -270,7 +308,13 @@ const addMinutesOfMeeting = async (req, res) => {
     
     await meeting.save();
     
-    res.json(meeting);
+    // Populate the updated meeting for response
+    const populatedMeeting = await Meeting.findById(meeting._id)
+      .populate('stakeholder', 'name email company')
+      .populate('assignedTo', 'name email')
+      .populate('createdBy', 'name email');
+    
+    res.json(populatedMeeting);
   } catch (error) {
     console.error('Add MoM error:', error);
     res.status(500).json({ message: 'Server error' });

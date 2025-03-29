@@ -16,11 +16,11 @@ const MeetingSchema = new mongoose.Schema({
     enum: ['weekly', 'biweekly', 'monthly', 'quarterly'],
     required: true
   },
-  assignedTo: {
+  assignedTo: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
-  },
+  }],
   status: {
     type: String,
     enum: ['scheduled', 'completed', 'missed'],

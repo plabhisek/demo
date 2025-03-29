@@ -1,24 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { toast } from 'react-toastify';
 import meetingService from '../../services/meetingService';
 import stakeholderService from '../../services/stakeholderService';
 import authService from '../../services/authService';
-import api from '../../services/api'; // Import the API service directly
+import api from '../../services/api';
+import MultiUserSelect from './MultiUserSelect'; // Import the new component
 
 const MeetingForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [stakeholders, setStakeholders] = useState([]);
-  const [users, setUsers] = useState([]); // To store users list for admin
+  const [users, setUsers] = useState([]); 
   const [currentUser, setCurrentUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [meeting, setMeeting] = useState(null); // Store the meeting for edit mode
+  const [meeting, setMeeting] = useState(null);
   
-  const { register, handleSubmit, formState: { errors }, setValue, reset } = useForm();
+  const { 
+    register, 
+    handleSubmit, 
+    formState: { errors }, 
+    setValue, 
+    control 
+  } = useForm();
   
   useEffect(() => {
     const loadData = async () => {
@@ -35,12 +42,10 @@ const MeetingForm = () => {
         // Only try to fetch users if admin
         if (user && user.role === 'admin') {
           try {
-            // Directly use API service to get users list
             const response = await api.get('/users');
             setUsers(response.data);
           } catch (error) {
             console.error('Failed to load users (admin only):', error);
-            // Don't show error toast, just log it
           }
         }
       } catch (error) {
@@ -57,14 +62,13 @@ const MeetingForm = () => {
           
           // Format date for input
           const dateObj = new Date(meetingData.nextMeetingDate);
-          const formattedDate = dateObj.toISOString().slice(0, 16); // Format: YYYY-MM-DDThh:mm
+          const formattedDate = dateObj.toISOString().slice(0, 16);
           
           // Set form values
           setValue('title', meetingData.title);
-          setValue('agenda', meetingData.agenda);
           setValue('stakeholderId', meetingData.stakeholder._id);
           setValue('frequency', meetingData.frequency);
-          setValue('assignedToId', meetingData.assignedTo._id);
+          setValue('assignedToIds', meetingData.assignedTo.map(user => user._id));
           setValue('nextMeetingDate', formattedDate);
           setValue('notes', meetingData.notes);
           setValue('active', meetingData.active);
@@ -83,10 +87,9 @@ const MeetingForm = () => {
     try {
       setLoading(true);
       
-      // If not admin, use current user's ID as assignedToId
+      // If not admin, use current user's ID as assignedToIds
       if (!isAdmin && !isEditMode) {
-        data.assignedToId = currentUser._id;
-        console.log(currentUser._id);
+        data.assignedToIds = [currentUser._id];
       }
       
       if (isEditMode) {
@@ -129,19 +132,6 @@ const MeetingForm = () => {
               )}
             </div>
 
-            <div className="col-span-2">
-  <label htmlFor="agenda" className="block text-sm font-medium text-gray-700 mb-1">
-    Agenda *
-  </label>
-  <textarea
-    id="agenda"
-    {...register('agenda', { required: 'Agenda is required' })}
-    rows="3"
-    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-    placeholder="Enter meeting agenda..."
-  ></textarea>
-  {errors.agenda && <p className="mt-1 text-sm text-red-600">{errors.agenda.message}</p>}
-</div>
             <div>
               <label htmlFor="stakeholderId" className="block text-sm font-medium text-gray-700 mb-1">
                 Stakeholder *
@@ -184,51 +174,34 @@ const MeetingForm = () => {
             </div>
             
             {/* User assignment section */}
-            <div>
-              <label htmlFor="assignedToId" className="block text-sm font-medium text-gray-700 mb-1">
-                Assigned To *
-              </label>
-              
-              {isAdmin ? (
-                <select
-                  id="assignedToId"
-                  {...register('assignedToId', { required: 'User assignment is required' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select User</option>
-                  {/* Show the current user */}
-                  
-                  {/* Show other users if available */}
-                  {users.length > 0 && users
-                    .filter(user => user._id !== currentUser?._id) // Don't show current user twice
-                    .map(user => (
-                      <option key={user._id} value={user._id}>
-                        {user.name} ({user.email})
-                      </option>
-                    ))
-                  }
-                  
-                  {/* Show the assigned user in edit mode if not in users list */}
-                  {isEditMode && meeting?.assignedTo && 
-                    !users.some(u => u._id === meeting.assignedTo._id) &&
-                    meeting.assignedTo._id !== currentUser?._id && (
-                      <option value={meeting.assignedTo._id}>
-                        {meeting.assignedTo.name} ({meeting.assignedTo.email})
-                      </option>
-                    )
-                  }
-                </select>
-              ) : (
-                <div className="px-3 py-2 border border-gray-300 bg-gray-50 rounded-md">
-                  {currentUser?.name} (You)
-                  <input type="hidden" {...register('assignedToId')} value={currentUser?._id} />
-                </div>
-              )}
-              
-              {errors.assignedToId && (
-                <p className="mt-1 text-sm text-red-600">{errors.assignedToId.message}</p>
-              )}
-            </div>
+            {isAdmin && (
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Assigned Users *
+                </label>
+                <Controller
+                  name="assignedToIds"
+                  control={control}
+                  rules={{ 
+                    validate: (value) => 
+                      value && value.length > 0 || 'At least one user must be assigned' 
+                  }}
+                  render={({ field: { onChange, value } }) => (
+                    <MultiUserSelect
+                      users={users}
+                      selectedUsers={value}
+                      onChange={onChange}
+                      placeholder="Select assigned users"
+                    />
+                  )}
+                />
+                {errors.assignedToIds && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.assignedToIds.message}
+                  </p>
+                )}
+              </div>
+            )}
             
             <div>
               <label htmlFor="nextMeetingDate" className="block text-sm font-medium text-gray-700 mb-1">
