@@ -25,8 +25,11 @@ const {
 const sendNotifications = async (user, meeting, emailTemplate, emailSubject, whatsappMessage) => {
   try {
     // Send email
-    const emailContent = emailTemplate(meeting);
-    const emailResult = await sendEmail(user.email, emailSubject, emailContent);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const meetingUrl = `${frontendUrl}/meetings/${meeting._id}`;
+    const html = emailTemplate(meeting, meetingUrl);
+    
+    const emailResult = await sendEmail(user.email, emailSubject, html);
     
     // Send WhatsApp message if mobile number exists
     let whatsappResult = null;
@@ -63,26 +66,28 @@ const sendReminders = async () => {
     for (const meeting of meetings) {
       // Calculate first working day based on meeting frequency
       if (isTodayFirstWorkingDay(meeting.nextMeetingDate, meeting.frequency)) {
-        // Validate stakeholder and user
-        if (meeting.stakeholder && meeting.assignedTo) {
+        // Validate stakeholder and users
+        if (meeting.stakeholder && meeting.assignedTo && meeting.assignedTo.length > 0) {
           // Prepare WhatsApp message
-        //const whatsappMessage = `Reminder: Meeting with ${meeting.stakeholder.name} on ${new Date(meeting.nextMeetingDate).toLocaleDateString()}`;
-        const whatsappMessage = generateReminderWhatsAppMessage(meeting);
-          // Send notifications
-          const notificationResult = await sendNotifications(
-            meeting.assignedTo, 
-            meeting, 
-            reminderTemplate, 
-            `Meeting Reminder: ${meeting.title} with ${meeting.stakeholder.name}`,
-            whatsappMessage
-          );
+          const whatsappMessage = generateReminderWhatsAppMessage(meeting);
           
-          // Mark reminder as sent if email was successful
-          if (notificationResult.emailResult && notificationResult.emailResult.success) {
-            meeting.reminderSent = true;
-            await meeting.save();
-            console.log(`Reminder notification sent for meeting ${meeting._id}`);
-          }
+          // Send notifications to all assigned users
+          const notificationPromises = meeting.assignedTo.map(user => {
+            return sendNotifications(
+              user, 
+              meeting, 
+              reminderTemplate, 
+              `Meeting Reminder: ${meeting.title} with ${meeting.stakeholder.name}`,
+              whatsappMessage
+            );
+          });
+          
+          await Promise.all(notificationPromises);
+          
+          // Mark reminder as sent
+          meeting.reminderSent = true;
+          await meeting.save();
+          console.log(`Reminder notifications sent for meeting ${meeting._id}`);
         }
       }
     }
@@ -109,26 +114,28 @@ const sendCheckIns = async () => {
     for (const meeting of meetings) {
       // Check if today is the last working day
       if (isTodayLastWorkingDay(meeting.nextMeetingDate, meeting.frequency)) {
-        // Validate stakeholder and user
-        if (meeting.stakeholder && meeting.assignedTo) {
+        // Validate stakeholder and users
+        if (meeting.stakeholder && meeting.assignedTo && meeting.assignedTo.length > 0) {
           // Prepare WhatsApp message
-          //const whatsappMessage = `Check-in: Did you meet with ${meeting.stakeholder.name}? Please update in the system.`;
           const whatsappMessage = generateCheckInWhatsAppMessage(meeting);
-          // Send notifications
-          const notificationResult = await sendNotifications(
-            meeting.assignedTo, 
-            meeting, 
-            checkInTemplate, 
-            `Meeting Check-in: ${meeting.title} with ${meeting.stakeholder.name}`,
-            whatsappMessage
-          );
           
-          // Mark check-in as sent if email was successful
-          if (notificationResult.emailResult && notificationResult.emailResult.success) {
-            meeting.checkInSent = true;
-            await meeting.save();
-            console.log(`Check-in notification sent for meeting ${meeting._id}`);
-          }
+          // Send notifications to all assigned users
+          const notificationPromises = meeting.assignedTo.map(user => {
+            return sendNotifications(
+              user, 
+              meeting, 
+              checkInTemplate, 
+              `Meeting Check-in: ${meeting.title} with ${meeting.stakeholder.name}`,
+              whatsappMessage
+            );
+          });
+          
+          await Promise.all(notificationPromises);
+          
+          // Mark check-in as sent
+          meeting.checkInSent = true;
+          await meeting.save();
+          console.log(`Check-in notifications sent for meeting ${meeting._id}`);
         }
       }
     }

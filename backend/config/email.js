@@ -19,7 +19,6 @@ const sendEmail = async (to, subject, html) => {
   if (!transporter) {
     setupTransporter();
   }
-  console.log("Hi Here");
   try {
     const info = await transporter.sendMail({
       from: `"Meeting Manager" <${process.env.EMAIL_FROM}>`,

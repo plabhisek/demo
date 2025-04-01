@@ -382,22 +382,30 @@ const sendReminderManually = async (req, res) => {
       return res.status(404).json({ message: 'Meeting not found' });
     }
     
-    // Check user permissions
-    if (req.user.role !== 'admin' && meeting.assignedTo._id.toString() !== req.userId.toString()) {
+    // Check user permissions - must be admin or one of the assigned users
+    const isAssignedUser = meeting.assignedTo.some(
+      user => user._id.toString() === req.userId.toString()
+    );
+    
+    if (req.user.role !== 'admin' && !isAssignedUser) {
       return res.status(403).json({ message: 'Access denied' });
     }
     
     // Prepare WhatsApp message
-    //const whatsappMessage = `Reminder: Meeting with ${meeting.stakeholder.name} on ${new Date(meeting.nextMeetingDate).toLocaleDateString()}`;
     const whatsappMessage = generateReminderWhatsAppMessage(meeting);
-    // Send notifications
-    const notificationResult = await sendNotifications(
-      meeting.assignedTo, 
-      meeting, 
-      reminderTemplate, 
-      `Reminder: Meeting with ${meeting.stakeholder.name}`,
-      whatsappMessage
-    );
+    
+    // Send notifications to all assigned users
+    const notificationPromises = meeting.assignedTo.map(user => {
+      return sendNotifications(
+        user, 
+        meeting, 
+        reminderTemplate, 
+        `Reminder: Meeting with ${meeting.stakeholder.name}`,
+        whatsappMessage
+      );
+    });
+    
+    const notificationResults = await Promise.all(notificationPromises);
     
     // Update meeting
     meeting.reminderSent = true;
@@ -406,7 +414,7 @@ const sendReminderManually = async (req, res) => {
     res.json({ 
       message: 'Reminder sent successfully', 
       meeting,
-      notifications: notificationResult
+      notifications: notificationResults
     });
   } catch (error) {
     console.error('Send reminder error:', error);
@@ -425,22 +433,30 @@ const sendCheckInManually = async (req, res) => {
       return res.status(404).json({ message: 'Meeting not found' });
     }
     
-    // Check user permissions
-    if (req.user.role !== 'admin' && meeting.assignedTo._id.toString() !== req.userId.toString()) {
+    // Check user permissions - must be admin or one of the assigned users
+    const isAssignedUser = meeting.assignedTo.some(
+      user => user._id.toString() === req.userId.toString()
+    );
+    
+    if (req.user.role !== 'admin' && !isAssignedUser) {
       return res.status(403).json({ message: 'Access denied' });
     }
     
     // Prepare WhatsApp message
-    //const whatsappMessage = `Check-in: Did you meet with ${meeting.stakeholder.name}? Please update in the system.`;
     const whatsappMessage = generateCheckInWhatsAppMessage(meeting);
-    // Send notifications
-    const notificationResult = await sendNotifications(
-      meeting.assignedTo, 
-      meeting, 
-      checkInTemplate, 
-      `Check-in: Did you meet with ${meeting.stakeholder.name}?`,
-      whatsappMessage
-    );
+    
+    // Send notifications to all assigned users
+    const notificationPromises = meeting.assignedTo.map(user => {
+      return sendNotifications(
+        user, 
+        meeting, 
+        checkInTemplate, 
+        `Check-in: Did you meet with ${meeting.stakeholder.name}?`,
+        whatsappMessage
+      );
+    });
+    
+    const notificationResults = await Promise.all(notificationPromises);
     
     // Update meeting
     meeting.checkInSent = true;
@@ -449,7 +465,7 @@ const sendCheckInManually = async (req, res) => {
     res.json({ 
       message: 'Check-in sent successfully', 
       meeting,
-      notifications: notificationResult
+      notifications: notificationResults
     });
   } catch (error) {
     console.error('Send check-in error:', error);

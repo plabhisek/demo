@@ -10,7 +10,7 @@ const reminderTemplate = (meeting) => {
     return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
         <h2 style="color: #333;">Meeting Reminder</h2>
-        <p>Hello ${meeting.assignedTo.name},</p>
+        <p>Hello ,</p>
         <p>This is a reminder about your upcoming meeting:</p>
         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
           <p><strong>Title:</strong> ${meeting.title}</p>
@@ -36,7 +36,7 @@ const reminderTemplate = (meeting) => {
     return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
         <h2 style="color: #333;">Meeting Check-in</h2>
-        <p>Hello ${meeting.assignedTo.name},</p>
+        <p>Hello ,</p>
         <p>We're checking in about your scheduled meeting:</p>
         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
           <p><strong>Title:</strong> ${meeting.title}</p>
@@ -66,7 +66,7 @@ const meetingCreatedTemplate = (meeting) => {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
       <h2 style="color: #333;">New Meeting Scheduled</h2>
-      <p>Hello ${meeting.assignedTo.name},</p>
+      <p>Hello ,</p>
       <p>A new meeting has been scheduled for you:</p>
       <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
         <p><strong>Title:</strong> ${meeting.title}</p>
