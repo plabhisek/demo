@@ -9,7 +9,8 @@ const {
   addMissedReason, 
   sendReminderManually, 
   sendCheckInManually, 
-  deleteMeeting 
+  deleteMeeting,
+  getMeetingCompliance
 } = require('../controllers/meetingController');
 const auth = require('../middleware/auth');
 
@@ -92,5 +93,9 @@ router.post('/:id/send-checkin', sendCheckInManually);
 // @desc    Delete meeting
 // @access  Private
 router.delete('/:id', deleteMeeting);
+// @route   GET /api/meetings/compliance
+// @desc    Get meeting compliance data
+// @access  Private
+router.get('/compliance', getMeetingCompliance);
 
 module.exports = router;

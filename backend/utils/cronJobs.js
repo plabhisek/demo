@@ -169,13 +169,15 @@ const updateMissedMeetings = async () => {
           date: meeting.nextMeetingDate,
           reason: 'No response from user'
         });
-        
+        // Update compliance stats
+        meeting.complianceStats.totalMissed += 1;
         // Schedule next meeting
         const newNextMeetingDate = calculateNextMeetingDate(meeting.nextMeetingDate, meeting.frequency);
         meeting.nextMeetingDate = newNextMeetingDate;
         meeting.reminderSent = false;
         meeting.checkInSent = false;
-        
+        // Increment total scheduled
+        meeting.complianceStats.totalScheduled += 1;
         await meeting.save();
         console.log(`Meeting ${meeting._id} marked as missed and rescheduled`);
       }

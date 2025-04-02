@@ -34,6 +34,20 @@ const MeetingSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  complianceStats: {
+    totalScheduled: {
+      type: Number,
+      default: 1  // Starts at 1 since creating a meeting schedules one
+    },
+    totalAttended: {
+      type: Number,
+      default: 0
+    },
+    totalMissed: {
+      type: Number,
+      default: 0
+    }
+  },
   checkInSent: {
     type: Boolean,
     default: false
@@ -86,3 +100,7 @@ const MeetingSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('Meeting', MeetingSchema);
+MeetingSchema.virtual('compliancePercentage').get(function() {
+  const total = this.complianceStats.totalAttended + this.complianceStats.totalMissed;
+  return total > 0 ? Math.round((this.complianceStats.totalAttended / total) * 100) : 100;
+});

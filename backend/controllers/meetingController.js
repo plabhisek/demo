@@ -298,15 +298,19 @@ const addMinutesOfMeeting = async (req, res) => {
     
     // Update meeting status
     meeting.status = 'completed';
-    
+    // Update compliance stats
+    meeting.complianceStats.totalAttended += 1;
     // Calculate next meeting date based on frequency
     meeting.nextMeetingDate = calculateNextMeetingDate(date, meeting.frequency);
     
     // Reset flags for next meeting cycle
     meeting.reminderSent = false;
     meeting.checkInSent = false;
-    
+    // Increment total scheduled 
+    meeting.complianceStats.totalScheduled += 1;
+    meeting.status = 'scheduled';
     await meeting.save();
+    
     
     // Populate the updated meeting for response
     const populatedMeeting = await Meeting.findById(meeting._id)
@@ -355,13 +359,16 @@ const addMissedReason = async (req, res) => {
     // Update meeting status
     meeting.status = 'missed';
     
+    // Update compliance stats
+    meeting.complianceStats.totalMissed += 1;
     // Calculate next meeting date based on frequency
     meeting.nextMeetingDate = calculateNextMeetingDate(date, meeting.frequency);
     
     // Reset flags for next meeting cycle
     meeting.reminderSent = false;
     meeting.checkInSent = false;
-    
+    meeting.status = 'scheduled';
+    meeting.complianceStats.totalScheduled += 1;
     await meeting.save();
     
     res.json(meeting);
@@ -497,6 +504,67 @@ const deleteMeeting = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+const getMeetingCompliance = async (req, res) => {
+  try {
+    const { userId, stakeholderId, startDate, endDate } = req.query;
+    
+    // Build filter based on query parameters
+    const filter = { active: true };
+    
+    if (userId) {
+      filter.assignedTo = userId;
+    }
+    
+    if (stakeholderId) {
+      filter.stakeholder = stakeholderId;
+    }
+    
+    if (startDate || endDate) {
+      filter.nextMeetingDate = {};
+      if (startDate) {
+        filter.nextMeetingDate.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        filter.nextMeetingDate.$lte = new Date(endDate);
+      }
+    }
+    
+    // Get all relevant meetings
+    const meetings = await Meeting.find(filter)
+      .populate('stakeholder', 'name email company')
+      .populate('assignedTo', 'name email')
+      .select('title status complianceStats minutesOfMeeting missedReasons');
+    
+    // Calculate overall compliance
+    let totalScheduled = 0;
+    let totalAttended = 0;
+    let totalMissed = 0;
+    
+    meetings.forEach(meeting => {
+      totalScheduled += meeting.complianceStats.totalScheduled;
+      totalAttended += meeting.complianceStats.totalAttended;
+      totalMissed += meeting.complianceStats.totalMissed;
+    });
+    
+    const compliancePercentage = (totalAttended + totalMissed > 0) 
+      ? Math.round((totalAttended / (totalAttended + totalMissed)) * 100) 
+      : 100;
+    
+    res.json({
+      meetings,
+      summary: {
+        totalMeetings: meetings.length,
+        totalScheduled,
+        totalAttended,
+        totalMissed,
+        compliancePercentage
+      }
+    });
+  } catch (error) {
+    console.error('Get compliance report error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 
 module.exports = {
   getAllMeetings,
@@ -507,5 +575,6 @@ module.exports = {
   addMissedReason,
   sendReminderManually,
   sendCheckInManually,
-  deleteMeeting
+  deleteMeeting,
+  getMeetingCompliance
 };
