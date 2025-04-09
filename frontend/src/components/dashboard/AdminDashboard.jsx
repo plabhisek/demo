@@ -34,7 +34,7 @@ const AdminDashboard = () => {
         const now = new Date();
         const upcomingMeetings = meetings.filter(meeting => new Date(meeting.nextMeetingDate) > now);
         const recentMeetings = meetings
-          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .sort((a, b) => new Date(b.nextMeetingDate) - new Date(a.nextMeetingDate))
           .slice(0, 5);
         
         setStats({
@@ -44,20 +44,26 @@ const AdminDashboard = () => {
           recentMeetings,
         });
 
-        // Process data for compliance graph
-        // This would normally come from your API, but we'll simulate it
-        const userComplianceData = stakeholders.map(stakeholder => {
-          // Calculate a compliance percentage (this is simulated)
-          const userMeetings = meetings.filter(m => 
-            m.participants && m.participants.includes(stakeholder._id)
+        // Process data for compliance graph - using stakeholder data
+        const stakeholderComplianceData = stakeholders.map(stakeholder => {
+          // Find all meetings for this stakeholder
+          const stakeholderMeetings = meetings.filter(meeting => 
+            meeting.stakeholder && meeting.stakeholder.toString() === stakeholder._id
           );
           
-          const attendedMeetings = userMeetings.filter(m => 
-            m.attendees && m.attendees.includes(stakeholder._id)
-          );
+          // Calculate compliance based on complianceStats in the Meeting model
+          let totalAttended = 0;
+          let totalMeetings = 0;
           
-          const compliance = userMeetings.length > 0 
-            ? Math.round((attendedMeetings.length / userMeetings.length) * 100) 
+          stakeholderMeetings.forEach(meeting => {
+            if (meeting.complianceStats) {
+              totalAttended += meeting.complianceStats.totalAttended || 0;
+              totalMeetings += (meeting.complianceStats.totalAttended || 0) + (meeting.complianceStats.totalMissed || 0);
+            }
+          });
+          
+          const compliance = totalMeetings > 0 
+            ? Math.round((totalAttended / totalMeetings) * 100) 
             : 0;
             
           return {
@@ -66,46 +72,57 @@ const AdminDashboard = () => {
           };
         }).slice(0, 10); // Limit to top 10 stakeholders for readability
         
-        setComplianceData(userComplianceData);
+        setComplianceData(stakeholderComplianceData);
 
-        // Process data for meeting trends
+        // Process data for meeting trends (based on meeting frequency)
         const last6Months = [];
         for (let i = 5; i >= 0; i--) {
           const d = new Date();
           d.setMonth(d.getMonth() - i);
           const monthName = d.toLocaleString('default', { month: 'short' });
           const year = d.getFullYear();
-          last6Months.push({ month: `${monthName} ${year}`, meetings: 0 });
+          last6Months.push({ 
+            month: `${monthName} ${year}`, 
+            scheduled: 0,
+            completed: 0,
+            missed: 0
+          });
         }
         
         meetings.forEach(meeting => {
-          const meetingDate = new Date(meeting.date);
+          const meetingDate = new Date(meeting.nextMeetingDate);
           const monthYear = `${meetingDate.toLocaleString('default', { month: 'short' })} ${meetingDate.getFullYear()}`;
           
           const monthIndex = last6Months.findIndex(m => m.month === monthYear);
           if (monthIndex !== -1) {
-            last6Months[monthIndex].meetings += 1;
+            if (meeting.status === 'scheduled') {
+              last6Months[monthIndex].scheduled += 1;
+            } else if (meeting.status === 'completed') {
+              last6Months[monthIndex].completed += 1;
+            } else if (meeting.status === 'missed') {
+              last6Months[monthIndex].missed += 1;
+            }
           }
         });
         
         setMeetingTrendData(last6Months);
 
-        // Process data for meeting types
-        const meetingTypes = {};
+        // Process data for meeting frequencies
+        const meetingFrequencies = {};
         meetings.forEach(meeting => {
-          const type = meeting.type || 'Unspecified';
-          if (!meetingTypes[type]) {
-            meetingTypes[type] = 0;
+          const frequency = meeting.frequency || 'Unspecified';
+          if (!meetingFrequencies[frequency]) {
+            meetingFrequencies[frequency] = 0;
           }
-          meetingTypes[type] += 1;
+          meetingFrequencies[frequency] += 1;
         });
         
-        const meetingTypeArray = Object.keys(meetingTypes).map(type => ({
-          name: type,
-          value: meetingTypes[type]
+        const meetingFrequencyArray = Object.keys(meetingFrequencies).map(frequency => ({
+          name: frequency,
+          value: meetingFrequencies[frequency]
         }));
         
-        setMeetingTypeData(meetingTypeArray);
+        setMeetingTypeData(meetingFrequencyArray);
       } catch (err) {
         setError(err.message || 'Failed to load dashboard data');
       } finally {
@@ -147,7 +164,7 @@ const AdminDashboard = () => {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-gray-800">Upcoming Meetings</h2>
           <p className="text-3xl font-bold text-green-600 mt-2">{stats.upcomingMeetings}</p>
-          <Link to="/meetings" className="text-blue-500 hover:underline block mt-4">View upcoming meetings</Link>
+          <Link to="/meetings?timeframe=upcoming" className="text-blue-500 hover:underline block mt-4">View upcoming meetings</Link>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow-md">
@@ -157,9 +174,34 @@ const AdminDashboard = () => {
         </div>
       </div>
 
+      {/* Meeting Status Overview */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Meeting Status Overview</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {['scheduled', 'completed', 'missed'].map((status) => {
+            const count = stats.recentMeetings.filter(m => m.status === status).length;
+            const colorClass = status === 'scheduled' ? 'bg-blue-100 text-blue-800' : 
+                             status === 'completed' ? 'bg-green-100 text-green-800' : 
+                             'bg-red-100 text-red-800';
+            
+            return (
+              <div key={status} className="p-4 rounded-lg shadow-sm border">
+                <h3 className="text-lg font-medium capitalize">{status}</h3>
+                <div className="flex items-center mt-2">
+                  <span className={`px-2 py-1 text-sm font-semibold rounded-full ${colorClass}`}>
+                    {count}
+                  </span>
+                  <span className="ml-2 text-gray-600">meetings</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Data Visualization Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* User Compliance Graph */}
+        {/* Stakeholder Compliance Graph */}
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Stakeholder Meeting Compliance</h2>
           <div className="h-64">
@@ -179,9 +221,9 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Meeting Types Pie Chart */}
+        {/* Meeting Frequency Distribution */}
         <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Meeting Types Distribution</h2>
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Meeting Frequency Distribution</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -221,7 +263,9 @@ const AdminDashboard = () => {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="meetings" stroke="#82ca9d" name="Number of Meetings" activeDot={{ r: 8 }} />
+                <Line type="monotone" dataKey="scheduled" stroke="#3b82f6" name="Scheduled" activeDot={{ r: 8 }} />
+                <Line type="monotone" dataKey="completed" stroke="#10b981" name="Completed" activeDot={{ r: 8 }} />
+                <Line type="monotone" dataKey="missed" stroke="#ef4444" name="Missed" activeDot={{ r: 8 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -243,6 +287,7 @@ const AdminDashboard = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Frequency</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -255,14 +300,27 @@ const AdminDashboard = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${new Date(meeting.nextMeetingDate) > new Date() ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                        {new Date(meeting.nextMeetingDate) > new Date() ? 'Upcoming' : 'Completed'}
+                        ${meeting.status === 'scheduled' ? 'bg-blue-100 text-blue-800' : 
+                          meeting.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                          'bg-red-100 text-red-800'}`}>
+                        {meeting.status}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
+                      {meeting.frequency}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <Link to={`/meetings/${meeting._id}`} className="text-blue-600 hover:text-blue-900 mr-4">
                         View
                       </Link>
+                      {meeting.status === 'scheduled' && (
+                        <button 
+                          onClick={() => meetingService.sendReminderManually(meeting._id)}
+                          className="text-gray-600 hover:text-gray-900 mr-4"
+                        >
+                          Send Reminder
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -274,6 +332,23 @@ const AdminDashboard = () => {
         )}
       </div>
       
+      {/* Compliance Statistics */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Compliance Statistics</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            { label: 'Total Scheduled', value: stats.recentMeetings.reduce((sum, m) => sum + (m.complianceStats?.totalScheduled || 0), 0) },
+            { label: 'Total Attended', value: stats.recentMeetings.reduce((sum, m) => sum + (m.complianceStats?.totalAttended || 0), 0) },
+            { label: 'Total Missed', value: stats.recentMeetings.reduce((sum, m) => sum + (m.complianceStats?.totalMissed || 0), 0) }
+          ].map((stat, index) => (
+            <div key={index} className="p-4 rounded-lg shadow-sm border">
+              <h3 className="text-lg font-medium">{stat.label}</h3>
+              <p className="text-2xl font-bold text-gray-800 mt-2">{stat.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      
       {/* Quick Actions */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Quick Actions</h2>
@@ -283,6 +358,9 @@ const AdminDashboard = () => {
           </Link>
           <Link to="/stakeholders/new" className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
             Add Stakeholder
+          </Link>
+          <Link to="/meetings/reports" className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+            Generate Reports
           </Link>
         </div>
       </div>
