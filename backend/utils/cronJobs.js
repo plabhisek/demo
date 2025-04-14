@@ -146,41 +146,54 @@ const sendCheckIns = async () => {
 
 /**
  * Update meeting statuses for missed meetings
- * Runs at midnight every day
+ * Runs at midnight lastworking day
  */
 const updateMissedMeetings = async () => {
   try {
     console.log('Running missed meetings job:', new Date());
     
-    // Find meetings that were missed
-    const missedMeetings = await Meeting.find({
-      active: true,
-      status: 'scheduled',
-      nextMeetingDate: { $lt: new Date() }
+    // Find meetings that need checking
+    const meetings = await Meeting.find({ 
+      active: true, 
+      status: 'scheduled'
     }).populate('stakeholder').populate('assignedTo');
     
-    for (const meeting of missedMeetings) {
-      // If no response after 2 days, mark as missed
-      const daysPassed = moment().diff(moment(meeting.nextMeetingDate), 'days');
-      
-      if (daysPassed >= 2) {
-        meeting.status = 'missed';
-        meeting.missedReasons.push({
-          date: meeting.nextMeetingDate,
-          reason: 'No response from user'
+    for (const meeting of meetings) {
+      // Check if today is the last working day of the frequency period
+      if (isTodayLastWorkingDay(meeting.nextMeetingDate, meeting.frequency)) {
+        // Check if there's a MoM (minutesOfMeeting) entry for this meeting period
+        const currentPeriodStart = moment(getFirstWorkingDay(meeting.nextMeetingDate, meeting.frequency));
+        const currentPeriodEnd = moment(getLastWorkingDay(meeting.nextMeetingDate, meeting.frequency));
+        
+        const hasMoMForPeriod = meeting.minutesOfMeeting.some(mom => {
+          const momDate = moment(mom.date);
+          return momDate.isBetween(currentPeriodStart, currentPeriodEnd, null, '[]'); // inclusive range
         });
-        // Update compliance stats
-        meeting.complianceStats.totalMissed += 1;
-        // Schedule next meeting
-        const newNextMeetingDate = calculateNextMeetingDate(meeting.nextMeetingDate, meeting.frequency);
-        meeting.nextMeetingDate = newNextMeetingDate;
-        meeting.reminderSent = false;
-        meeting.checkInSent = false;
-        // Increment total scheduled
-        meeting.complianceStats.totalScheduled += 1;
-        meeting.status = 'scheduled';
-        await meeting.save();
-        console.log(`Meeting ${meeting._id} marked as missed and rescheduled`);
+        
+        // If no MoM entry found for the period by 11:59 PM on the last working day, mark it as missed
+        if (!hasMoMForPeriod) {
+          meeting.status = 'missed';
+          meeting.missedReasons.push({
+            date: meeting.nextMeetingDate,
+            reason: 'No meeting recorded by end of frequency period'
+          });
+          
+          // Update compliance stats
+          meeting.complianceStats.totalMissed += 1;
+          
+          // Schedule next meeting
+          const newNextMeetingDate = calculateNextMeetingDate(meeting.nextMeetingDate, meeting.frequency);
+          meeting.nextMeetingDate = newNextMeetingDate;
+          meeting.reminderSent = false;
+          meeting.checkInSent = false;
+          
+          // Increment total scheduled
+          meeting.complianceStats.totalScheduled += 1;
+          meeting.status = 'scheduled';
+          
+          await meeting.save();
+          console.log(`Meeting ${meeting._id} marked as missed and rescheduled`);
+        }
       }
     }
   } catch (error) {
@@ -199,7 +212,8 @@ const setupCronJobs = () => {
   const checkInJob = new cron.CronJob('0 10 * * 1-5', sendCheckIns);
   
   // Update missed meetings at midnight every day
-  const missedMeetingsJob = new cron.CronJob('0 0 * * *', updateMissedMeetings);
+  const missedMeetingsJob = new cron.CronJob('59 23 * * *', updateMissedMeetings);
+  
   
   // Start cron jobs
   reminderJob.start();
