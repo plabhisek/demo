@@ -24,6 +24,16 @@ const userService = {
   changePassword: async (passwordData) => {
     const response = await api.post('/users/change-password', passwordData);
     return response.data;
+  },
+  deleteUser: async (id) => {
+    const response = await api.delete(`/users/${id}`);
+    return response.data;
+  },
+
+  // Get users by department
+  getUsersByDepartment: async (department) => {
+    const response = await api.get('/users', { params: { department } });
+    return response.data;
   }
 };
 

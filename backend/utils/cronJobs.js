@@ -193,10 +193,10 @@ const updateMissedMeetings = async () => {
  */
 const setupCronJobs = () => {
   // Send reminders at 8:00 AM every weekday (Monday-Friday)
-  const reminderJob = new cron.CronJob('0 11 * * 1-5', sendReminders);
+  const reminderJob = new cron.CronJob('0 10 * * 1-5', sendReminders);
   
   // Send check-ins at 3:00 PM every weekday (Monday-Friday)
-  const checkInJob = new cron.CronJob('0 15 * * 1-5', sendCheckIns);
+  const checkInJob = new cron.CronJob('0 10 * * 1-5', sendCheckIns);
   
   // Update missed meetings at midnight every day
   const missedMeetingsJob = new cron.CronJob('0 0 * * *', updateMissedMeetings);
