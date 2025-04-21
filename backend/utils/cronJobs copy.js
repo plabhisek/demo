@@ -145,81 +145,49 @@ const sendCheckIns = async () => {
   }
 };
 
-const checkMoMExists = (meeting) => {
-  const firstWorkingDay = getFirstWorkingDay(meeting.nextMeetingDate, meeting.frequency);
-  const lastWorkingDay = getLastWorkingDay(meeting.nextMeetingDate, meeting.frequency);
-  
-  // Check if any MoM entries exist within this date range
-  return meeting.minutesOfMeeting.some(mom => {
-    const momDate = new Date(mom.date);
-    return momDate >= firstWorkingDay && momDate <= lastWorkingDay;
-  });
-};
-
 /**
  * Update meeting statuses for missed meetings
- * Runs at 11:59 PM every weekday
+ * Runs at midnight every day
  */
 const updateMissedMeetings = async () => {
   try {
     console.log('Running missed meetings job:', new Date());
     
-    // Find active scheduled meetings
-    const meetings = await Meeting.find({
+    // Find meetings that were missed
+    const missedMeetings = await Meeting.find({
       active: true,
-      status: 'scheduled'
+      status: 'scheduled',
+      nextMeetingDate: { $lt: new Date() }
     }).populate('stakeholder').populate('assignedTo');
     
-    for (const meeting of meetings) {
-      // Only process meetings on their last working day
-      if (isTodayLastWorkingDay(meeting.nextMeetingDate, meeting.frequency)) {
-        // Check if MoM exists for this period
-        const momExists = checkMoMExists(meeting);
-        
-        // If no MoM exists, mark as missed
-        if (!momExists) {
-          meeting.status = 'missed';
-          meeting.missedReasons.push({
-            date: meeting.nextMeetingDate,
-            reason: 'No minutes of meeting recorded'
-          });
-          // Update compliance stats
-          meeting.complianceStats.totalMissed += 1;
-          
-          // Schedule next meeting
-          const newNextMeetingDate = calculateNextMeetingDate(meeting.nextMeetingDate, meeting.frequency);
-          meeting.nextMeetingDate = newNextMeetingDate;
-          meeting.reminderSent = false;
-          meeting.checkInSent = false;
-          // Increment total scheduled
-          meeting.complianceStats.totalScheduled += 1;
-          meeting.status = 'scheduled';
-          
-          await meeting.save();
-          console.log(`Meeting ${meeting._id} marked as missed and rescheduled`);
-        } else {
-          // If MoM exists, mark as completed
-          meeting.status = 'completed';
-          meeting.complianceStats.totalAttended += 1;
-          
-          // Schedule next meeting
-          const newNextMeetingDate = calculateNextMeetingDate(meeting.nextMeetingDate, meeting.frequency);
-          meeting.nextMeetingDate = newNextMeetingDate;
-          meeting.reminderSent = false;
-          meeting.checkInSent = false;
-          meeting.complianceStats.totalScheduled += 1;
-          meeting.status = 'scheduled';
-          
-          await meeting.save();
-          console.log(`Meeting ${meeting._id} marked as completed and rescheduled`);
-        }
+    for (const meeting of missedMeetings) {
+      // If no response after 2 days, mark as missed
+      const daysPassed = moment().diff(moment(meeting.nextMeetingDate), 'days');
+      
+      if (daysPassed >= 2) {
+        meeting.status = 'missed';
+        meeting.missedReasons.push({
+          date: meeting.nextMeetingDate,
+          reason: 'No response from user'
+        });
+        // Update compliance stats
+        meeting.complianceStats.totalMissed += 1;
+        // Schedule next meeting
+        const newNextMeetingDate = calculateNextMeetingDate(meeting.nextMeetingDate, meeting.frequency);
+        meeting.nextMeetingDate = newNextMeetingDate;
+        meeting.reminderSent = false;
+        meeting.checkInSent = false;
+        // Increment total scheduled
+        meeting.complianceStats.totalScheduled += 1;
+        meeting.status = 'scheduled';
+        await meeting.save();
+        console.log(`Meeting ${meeting._id} marked as missed and rescheduled`);
       }
     }
   } catch (error) {
     console.error('Error in updateMissedMeetings job:', error);
   }
 };
-
 
 /**
  * Set up all cron jobs

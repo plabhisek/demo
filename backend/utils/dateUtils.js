@@ -1,149 +1,101 @@
 const moment = require('moment-business-days');
 
-// Custom configuration for business days including only odd Saturdays (1st, 3rd, 5th)
-// 2nd and 4th Saturdays are off
-moment.updateLocale('en', {
-  workingWeekdays: [1, 2, 3, 4, 5],
-  holidays: [],
-  holidayFormat: 'YYYY-MM-DD',
-  // Override the isBusinessDay method to handle odd Saturdays
-  isBusinessDay: function(date) {
-    const momentDate = moment(date);
-    
-    // Check if it's a regular business day (Mon-Fri)
-    if ([1, 2, 3, 4, 5].includes(momentDate.day())) {
-      return true;
-    }
-    
-    // Check if it's Saturday (day 6)
-    if (momentDate.day() === 6) {
-      // Get the day of the month
-      const dayOfMonth = momentDate.date();
-      
-      // Calculate which Saturday of the month it is
-      const weekOfMonth = Math.ceil(dayOfMonth / 7);
-      
-      // If it's 1st, 3rd, or 5th Saturday, it's a working day
-      // If it's 2nd or 4th Saturday, it's not a working day
-      return weekOfMonth === 1 || weekOfMonth === 3 || weekOfMonth === 5;
-    }
-    
-    return false;
-  }
-});
+// Custom business day logic: Mon-Fri + Odd Saturdays
+const isCustomBusinessDay = (date) => {
+  const momentDate = moment(date);
+  const day = momentDate.day();
 
-// Calculate the next meeting date based on frequency
+  if ([1, 2, 3, 4, 5].includes(day)) return true; // Mon-Fri
+
+  if (day === 6) {
+    const dayOfMonth = momentDate.date();
+    const saturdayCount = Math.floor((dayOfMonth - 1) / 7) + 1;
+    return saturdayCount % 2 === 1; // Odd Saturdays only
+  }
+
+  return false; // Sunday
+};
+
 const calculateNextMeetingDate = (currentDate, frequency) => {
   const date = moment(currentDate);
-  
+
   switch (frequency) {
     case 'weekly':
-      return date.businessAdd(5).toDate(); // Add 1 week (5 business days)
-    
+      return date.businessAdd(5).toDate();
     case 'biweekly':
-      return date.businessAdd(10).toDate(); // Add 2 weeks (10 business days)
-    
+      return date.businessAdd(10).toDate();
     case 'monthly':
-      // Add approximately 1 month (21 business days)
       return date.businessAdd(21).toDate();
-    
     case 'quarterly':
-      // Add approximately 3 months (63 business days)
       return date.businessAdd(63).toDate();
-    
     default:
-      return date.businessAdd(5).toDate(); // Default to weekly
+      return date.businessAdd(5).toDate();
   }
 };
 
-// Get the first working day of a period
 const getFirstWorkingDay = (date, frequency) => {
   const momentDate = moment(date);
-  
+  let start;
+
   switch (frequency) {
     case 'weekly':
-      // Start of the week, ensure it's a business day
-      return momentDate.startOf('week').nextBusinessDay().toDate();
-    
     case 'biweekly':
-      // Start of the 2-week period, ensure it's a business day
-      return momentDate.startOf('week').nextBusinessDay().toDate();
-    
+      start = momentDate.startOf('week');
+      break;
     case 'monthly':
-      // Start of the month, ensure it's a business day
-      return momentDate.startOf('month').nextBusinessDay().toDate();
-    
+      start = momentDate.startOf('month');
+      break;
     case 'quarterly':
-      // Start of the quarter, ensure it's a business day
-      const quarterStart = momentDate.startOf('quarter');
-      return quarterStart.nextBusinessDay().toDate();
-    
+      start = momentDate.startOf('quarter');
+      break;
     default:
-      return momentDate.nextBusinessDay().toDate();
+      start = momentDate.clone();
   }
+
+  while (!isCustomBusinessDay(start)) {
+    start.add(1, 'day');
+  }
+
+  return start.toDate();
 };
 
-// Get the last working day of a period
 const getLastWorkingDay = (date, frequency) => {
   const momentDate = moment(date);
-  let endDate;
-  
+  let end;
+
   switch (frequency) {
     case 'weekly':
-      // End of the CURRENT week (not next meeting's week)
-      endDate = moment().endOf('week');
+      end = momentDate.endOf('week').clone();
       break;
-    
     case 'biweekly':
-      // For biweekly, determine if we're in the first or second week of the period
-      const currentDate = moment();
-      const startOfPeriod = moment(getFirstWorkingDay(momentDate, 'biweekly'));
-      
-      // If we're in the first week of the period
-      if (currentDate.diff(startOfPeriod, 'weeks') < 1) {
-        endDate = startOfPeriod.clone().add(1, 'week').endOf('week');
-      } else {
-        // We're in the second week of the period
-        endDate = startOfPeriod.clone().add(2, 'weeks').subtract(1, 'day').endOf('day');
-      }
+      end = momentDate.clone().add(1, 'week').endOf('week');
       break;
-    
     case 'monthly':
-      // End of the CURRENT month
-      endDate = moment().endOf('month');
+      end = momentDate.endOf('month').clone();
       break;
-    
     case 'quarterly':
-      // End of the CURRENT quarter
-      endDate = moment().endOf('quarter');
+      end = momentDate.endOf('quarter').clone();
       break;
-    
     default:
-      // Default to end of current week
-      endDate = moment().endOf('week');
+      end = momentDate.clone();
   }
-  
-  // Find the last business day by going backwards until we find a business day
-  while (!endDate.isBusinessDay()) {
-    endDate.subtract(1, 'days');
+
+  while (!isCustomBusinessDay(end)) {
+    end.subtract(1, 'day');
   }
-  
-  return endDate.toDate();
+
+  return end.toDate();
 };
 
-// Check if today is the first working day of the period
-const isTodayFirstWorkingDay = (frequency) => {
+const isTodayFirstWorkingDay = (nextMeetingDate, frequency) => {
   const today = moment().startOf('day');
-  const firstDay = moment(getFirstWorkingDay(today, frequency)).startOf('day');
-  
+  const firstDay = moment(getFirstWorkingDay(nextMeetingDate, frequency)).startOf('day');
   return today.isSame(firstDay);
 };
 
-// Check if today is the last working day of the period
-const isTodayLastWorkingDay = (frequency) => {
+const isTodayLastWorkingDay = (nextMeetingDate, frequency) => {
   const today = moment().startOf('day');
-  const lastDay = moment(getLastWorkingDay(today, frequency)).startOf('day');
-  
+  const lastDay = moment(getLastWorkingDay(nextMeetingDate, frequency)).startOf('day');
   return today.isSame(lastDay);
 };
 
