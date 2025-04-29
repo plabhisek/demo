@@ -5,6 +5,7 @@ const User = require('../models/User');
 const Stakeholder = require('../models/Stakeholder');
 const { sendEmail } = require('../config/email');
 const { sendWhatsAppMessage } = require('../utils/whatsappNotification');
+const { sendLogicAppNotification } = require('./logicAppNotification');
 const { 
   reminderTemplate, 
   checkInTemplate 
@@ -40,8 +41,17 @@ const sendNotifications = async (user, meeting, emailTemplate, emailSubject, wha
         console.error('WhatsApp notification failed:', error);
       }
     }
+    let logicAppResult = null;
+    try {
+      logicAppResult = await sendLogicAppNotification(
+        user.email, 
+        whatsappMessage
+      );
+    } catch (error) {
+      console.error('Logic App notification failed:', error);
+    }
     
-    return { emailResult, whatsappResult };
+    return { emailResult, whatsappResult ,logicAppResult};
   } catch (error) {
     console.error('Notification sending error:', error);
     return { error: true, message: error.message };
