@@ -241,8 +241,8 @@ const setupCronJobs = () => {
   // Send check-ins at 3:00 PM every weekday (Monday-Friday)
   const checkInJob = new cron.CronJob('0 10 * * 1-6', sendCheckIns);
   
-  // Update missed meetings at midnight every day
-  const missedMeetingsJob = new cron.CronJob('0 0 * * *', updateMissedMeetings);
+  // Update missed meetings at 11:50 pm every day
+  const missedMeetingsJob = new cron.CronJob('50 23 * * *', updateMissedMeetings);
   
   // Start cron jobs
   reminderJob.start();

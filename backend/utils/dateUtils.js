@@ -25,9 +25,9 @@ const calculateNextMeetingDate = (currentDate, frequency) => {
     case 'biweekly':
       return date.businessAdd(10).toDate();
     case 'monthly':
-      return date.businessAdd(21).toDate();
+      return date.add(1, 'months').toDate();
     case 'quarterly':
-      return date.businessAdd(63).toDate();
+      return date.add(3, 'months').toDate();
     default:
       return date.businessAdd(5).toDate();
   }
